@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: correai-postgres
+    environment:
+      POSTGRES_DB: correai
+      POSTGRES_USER: correai
+      POSTGRES_PASSWORD: correai
+    ports:
+      - "5432:5432"
+    volumes:
+      - correai_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U correai"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: correai-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/correai
+      SPRING_DATASOURCE_USERNAME: correai
+      SPRING_DATASOURCE_PASSWORD: correai
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  correai_pgdata:
