@@ -1,0 +1,353 @@
+{
+  "info": {
+    "name": "correai-api",
+    "description": "Collection completa da API correai-api. Aplicativo de corrida/caminhada onde o usuário registra atividades e consulta estatísticas de desempenho.\n\nA autenticação usa um JWT emitido pela API: execute primeiro `Auth > Criar usuário anônimo`, que salva o token na variável `accessToken`. As demais requests enviam `Authorization: Bearer {{accessToken}}`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "b6f6a1a0-1e9a-4b7a-9a1a-correai0001"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string",
+      "description": "JWT retornado por POST /auth/anonymous (preenchido automaticamente)."
+    },
+    {
+      "key": "activityId",
+      "value": "",
+      "type": "string",
+      "description": "UUID de uma atividade criada, usado em requests futuras caso a API venha a expor endpoints por id."
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string",
+      "description": "UUID do usuário, preenchido automaticamente por POST /auth/anonymous."
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Criar usuário anônimo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "pm.collectionVariables.set('userId', json.userId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/anonymous",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "anonymous"
+              ]
+            },
+            "description": "Cria um usuário anônimo e retorna um JWT (Bearer). O token é salvo automaticamente na variável accessToken."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Activities",
+      "item": [
+        {
+          "name": "Listar atividades",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/activities?page=0&size=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activities"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "20",
+                  "description": "1 a 100"
+                }
+              ]
+            },
+            "description": "Lista paginada das atividades do usuário autenticado (ordenadas da mais recente para a mais antiga).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Criar atividade (RUN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.id) {",
+                  "    pm.collectionVariables.set('activityId', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"RUN\",\n  \"distanceKm\": 5.2,\n  \"durationSeconds\": 1500,\n  \"trainingType\": \"EASY\",\n  \"perceivedEffort\": \"OK\",\n  \"notes\": \"Treino leve de recuperação\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/activities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activities"
+              ]
+            },
+            "description": "Cria uma nova atividade do tipo corrida (RUN).\n\nCampos:\n- type: RUN | WALK (obrigatório)\n- distanceKm: número > 0 (obrigatório)\n- durationSeconds: número > 0 (obrigatório)\n- trainingType: EASY | TEMPO | INTERVAL | LONG (opcional)\n- perceivedEffort: EASY | OK | HARD (opcional)\n- notes: texto livre (opcional)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Criar atividade (WALK)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"WALK\",\n  \"distanceKm\": 3.0,\n  \"durationSeconds\": 2400,\n  \"trainingType\": \"EASY\",\n  \"perceivedEffort\": \"EASY\",\n  \"notes\": \"Caminhada tranquila no parque\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/activities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activities"
+              ]
+            },
+            "description": "Cria uma nova atividade do tipo caminhada (WALK).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Criar atividade (payload inválido - erro de validação)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"RUN\",\n  \"distanceKm\": 0,\n  \"durationSeconds\": -100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/activities",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activities"
+              ]
+            },
+            "description": "Exemplo de request inválida (distanceKm <= 0 e durationSeconds negativo) para testar as validações de Bean Validation / regras de domínio da entidade Activity. Deve retornar 400 Bad Request.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints relacionados ao registro e consulta de atividades (corrida/caminhada)."
+    },
+    {
+      "name": "Stats",
+      "item": [
+        {
+          "name": "Resumo estatístico",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stats/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stats",
+                "summary"
+              ]
+            },
+            "description": "Retorna o resumo estatístico do usuário:\n- kmWeek: quilometragem da semana atual (segunda-feira até hoje)\n- kmMonth: quilometragem do mês atual (dia 1 até hoje)\n- activitiesWeek: quantidade de atividades na semana atual\n- streak: dias consecutivos com pelo menos uma atividade\n- longestDistance: maior distância já percorrida em uma única atividade",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Evolução semanal",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/stats/evolution?weeks=8",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stats",
+                "evolution"
+              ],
+              "query": [
+                {
+                  "key": "weeks",
+                  "value": "8",
+                  "description": "1 a 52"
+                }
+              ]
+            },
+            "description": "Totais semanais (km, atividades e pace médio) das últimas N semanas, da mais antiga para a atual."
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints de estatísticas agregadas do usuário."
+    },
+    {
+      "name": "Actuator",
+      "item": [
+        {
+          "name": "Health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "health"
+              ]
+            },
+            "description": "Verifica a saúde da aplicação (status UP/DOWN). Não requer autenticação."
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints de observabilidade expostos pelo Spring Boot Actuator."
+    }
+  ]
+}
