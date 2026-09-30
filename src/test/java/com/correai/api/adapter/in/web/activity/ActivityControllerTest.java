@@ -91,7 +91,20 @@ class ActivityControllerTest {
         mockMvc.perform(get("/activities")
                         .param("size", "0")
                         .requestAttr("userId", userId))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").exists());
+    }
+
+    @Test
+    void create_withInvalidBody_shouldReturnProblemDetailWithFieldErrors() throws Exception {
+        request.setDistanceKm(-1.0);
+
+        mockMvc.perform(post("/activities")
+                        .requestAttr("userId", userId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.distanceKm").exists());
     }
 
     @Test

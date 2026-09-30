@@ -1,10 +1,9 @@
 package com.correai.api.adapter.in.web.config;
 
-import com.correai.api.domain.port.in.user.EnsureUserUseCase;
-import com.correai.api.domain.model.user.UnknownUserException;
+import com.correai.api.domain.model.auth.InvalidTokenException;
+import com.correai.api.domain.port.in.auth.AuthenticateTokenUseCase;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -14,14 +13,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UserContextInterceptorTest {
 
     @Mock
-    private EnsureUserUseCase ensureUserUseCase;
+    private AuthenticateTokenUseCase authenticateTokenUseCase;
 
     @Mock
     private HttpServletRequest request;
@@ -29,82 +27,62 @@ class UserContextInterceptorTest {
     @Mock
     private HttpServletResponse response;
 
-    @Mock
-    private Object handler;
-
     @InjectMocks
     private UserContextInterceptor interceptor;
 
-    private UUID userId;
-
-    @BeforeEach
-    void setUp() {
-        userId = UUID.randomUUID();
-    }
-
     @Test
-    void preHandle_withExistingUserIdHeader_shouldSetAttribute() {
-        when(request.getAttribute("userId")).thenReturn(null);
-        when(request.getHeader("X-User-Id")).thenReturn(userId.toString());
-        when(ensureUserUseCase.resolveOrCreate(userId)).thenReturn(userId);
+    void preHandle_withValidBearerToken_shouldSetUserAttribute() {
+        UUID userId = UUID.randomUUID();
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getHeader("Authorization")).thenReturn("Bearer abc.def.ghi");
+        when(authenticateTokenUseCase.authenticate("abc.def.ghi")).thenReturn(userId);
 
-        boolean result = interceptor.preHandle(request, response, handler);
+        assertTrue(interceptor.preHandle(request, response, new Object()));
 
-        assertTrue(result);
         verify(request).setAttribute("userId", userId);
-        verify(response, never()).setHeader(anyString(), anyString());
     }
 
     @Test
-    void preHandle_withUnknownUserIdHeader_shouldRejectRequest() {
-        when(request.getAttribute("userId")).thenReturn(null);
-        when(request.getHeader("X-User-Id")).thenReturn(userId.toString());
-        when(ensureUserUseCase.resolveOrCreate(userId)).thenThrow(new UnknownUserException(userId));
+    void preHandle_withoutAuthorizationHeader_shouldThrowInvalidToken() {
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getHeader("Authorization")).thenReturn(null);
 
-        boolean result = interceptor.preHandle(request, response, handler);
-
-        assertFalse(result);
-        verify(response).setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        verify(request, never()).setAttribute("userId", userId);
+        assertThrows(InvalidTokenException.class, () -> interceptor.preHandle(request, response, new Object()));
+        verifyNoInteractions(authenticateTokenUseCase);
     }
 
     @Test
-    void preHandle_withoutUserIdHeader_shouldCreateAnonymousUser() {
-        UUID generatedId = UUID.randomUUID();
-        when(request.getAttribute("userId")).thenReturn(null);
-        when(request.getHeader("X-User-Id")).thenReturn(null);
-        when(ensureUserUseCase.resolveOrCreate(null)).thenReturn(generatedId);
+    void preHandle_withNonBearerScheme_shouldThrowInvalidToken() {
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getHeader("Authorization")).thenReturn("Basic abc");
 
-        boolean result = interceptor.preHandle(request, response, handler);
-
-        assertTrue(result);
-        verify(response).setHeader("X-User-Id", generatedId.toString());
-        verify(request).setAttribute("userId", generatedId);
+        assertThrows(InvalidTokenException.class, () -> interceptor.preHandle(request, response, new Object()));
     }
 
     @Test
-    void preHandle_withBlankUserIdHeader_shouldCreateAnonymousUser() {
-        UUID generatedId = UUID.randomUUID();
-        when(request.getAttribute("userId")).thenReturn(null);
-        when(request.getHeader("X-User-Id")).thenReturn("   ");
-        when(ensureUserUseCase.resolveOrCreate(null)).thenReturn(generatedId);
+    void preHandle_withInvalidToken_shouldPropagateException() {
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getHeader("Authorization")).thenReturn("Bearer bad");
+        when(authenticateTokenUseCase.authenticate("bad")).thenThrow(new InvalidTokenException("Malformed token"));
 
-        boolean result = interceptor.preHandle(request, response, handler);
+        assertThrows(InvalidTokenException.class, () -> interceptor.preHandle(request, response, new Object()));
+        verify(request, never()).setAttribute(eq("userId"), any());
+    }
 
-        assertTrue(result);
-        verify(response).setHeader("X-User-Id", generatedId.toString());
-        verify(request).setAttribute("userId", generatedId);
+    @Test
+    void preHandle_withPreflightRequest_shouldSkipAuthentication() {
+        when(request.getMethod()).thenReturn("OPTIONS");
+
+        assertTrue(interceptor.preHandle(request, response, new Object()));
+        verifyNoInteractions(authenticateTokenUseCase);
     }
 
     @Test
     void preHandle_withExistingAttribute_shouldReturnTrue() {
-        when(request.getAttribute("userId")).thenReturn(userId);
+        when(request.getMethod()).thenReturn("GET");
+        when(request.getAttribute("userId")).thenReturn(UUID.randomUUID());
 
-        boolean result = interceptor.preHandle(request, response, handler);
-
-        assertTrue(result);
+        assertTrue(interceptor.preHandle(request, response, new Object()));
         verify(request, never()).getHeader(anyString());
-        verify(ensureUserUseCase, never()).resolveOrCreate(any());
     }
 }
-

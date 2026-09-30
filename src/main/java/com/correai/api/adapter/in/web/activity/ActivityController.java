@@ -11,15 +11,15 @@ import com.correai.api.domain.port.in.activity.ListActivitiesUseCase;
 import com.correai.api.adapter.in.web.activity.dto.ActivityItemResponse;
 import com.correai.api.adapter.in.web.activity.dto.ActivityRequest;
 import com.correai.api.adapter.in.web.activity.dto.ActivityResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
 @RestController
+@SecurityRequirement(name = "bearerAuth")
 @RequestMapping("/activities")
 public class ActivityController {
 
@@ -37,13 +37,7 @@ public class ActivityController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "" + PageQuery.DEFAULT_SIZE) int size
     ) {
-        PageQuery pageQuery;
-        try {
-            pageQuery = new PageQuery(page, size);
-        } catch (IllegalArgumentException exception) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage());
-        }
-        PageResult<ActivityItemResponse> result = listActivitiesUseCase.list(userId, pageQuery)
+        PageResult<ActivityItemResponse> result = listActivitiesUseCase.list(userId, new PageQuery(page, size))
                 .map(this::toItemResponse);
         return ResponseEntity.ok(PageResponse.from(result));
     }

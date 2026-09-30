@@ -1,10 +1,10 @@
 package com.correai.api.adapter.in.web.config;
 
-import com.correai.api.domain.port.in.user.EnsureUserUseCase;
-import com.correai.api.domain.model.user.UnknownUserException;
+import com.correai.api.domain.model.auth.InvalidTokenException;
+import com.correai.api.domain.port.in.auth.AuthenticateTokenUseCase;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.lang.NonNull;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -13,13 +13,14 @@ import java.util.UUID;
 @Component
 public class UserContextInterceptor implements HandlerInterceptor {
 
-    private static final String USER_HEADER = "X-User-Id";
-    private static final String USER_REQUEST_ATTR = "userId";
+    public static final String USER_REQUEST_ATTR = "userId";
 
-    private final EnsureUserUseCase ensureUserUseCase;
+    private static final String BEARER_PREFIX = "Bearer ";
 
-    public UserContextInterceptor(EnsureUserUseCase ensureUserUseCase) {
-        this.ensureUserUseCase = ensureUserUseCase;
+    private final AuthenticateTokenUseCase authenticateTokenUseCase;
+
+    public UserContextInterceptor(AuthenticateTokenUseCase authenticateTokenUseCase) {
+        this.authenticateTokenUseCase = authenticateTokenUseCase;
     }
 
     @Override
@@ -28,36 +29,17 @@ public class UserContextInterceptor implements HandlerInterceptor {
             @NonNull HttpServletResponse response,
             @NonNull Object handler
     ) {
-
-        if (request.getAttribute(USER_REQUEST_ATTR) != null) {
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod()) || request.getAttribute(USER_REQUEST_ATTR) != null) {
             return true;
         }
 
-        String userIdHeader = request.getHeader(USER_HEADER);
-        UUID providedUserId;
-        try {
-            providedUserId = (userIdHeader == null || userIdHeader.isBlank())
-                    ? null
-                    : UUID.fromString(userIdHeader);
-        } catch (IllegalArgumentException exception) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            return false;
+        String authorization = request.getHeader("Authorization");
+        if (authorization == null || !authorization.startsWith(BEARER_PREFIX)) {
+            throw new InvalidTokenException("Missing bearer token");
         }
 
-        UUID userId;
-        try {
-            userId = ensureUserUseCase.resolveOrCreate(providedUserId);
-        } catch (UnknownUserException exception) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            return false;
-        }
-
-        if (providedUserId == null) {
-            response.setHeader(USER_HEADER, userId.toString());
-        }
-
+        UUID userId = authenticateTokenUseCase.authenticate(authorization.substring(BEARER_PREFIX.length()).trim());
         request.setAttribute(USER_REQUEST_ATTR, userId);
         return true;
     }
 }
-

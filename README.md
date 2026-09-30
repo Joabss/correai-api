@@ -22,7 +22,7 @@ A aplicação permite que um usuário (identificado de forma anônima via header
   - Sequência de dias consecutivos com atividade (`streak`)
   - Maior distância já percorrida (`longestDistance`)
 
-Não há autenticação tradicional: a identificação do usuário é feita via header `X-User-Id`. Caso o header não seja enviado, a API cria automaticamente um usuário anônimo e devolve o novo `X-User-Id` na resposta, que deve ser reutilizado pelo cliente nas próximas chamadas.
+Não há cadastro/login: o cliente chama `POST /auth/anonymous`, que cria um usuário anônimo e devolve um **JWT** assinado (HS256). Esse token deve ser enviado em todas as chamadas seguintes no header `Authorization: Bearer <token>`.
 
 ## Stack Tecnológica
 
@@ -34,6 +34,9 @@ Não há autenticação tradicional: a identificação do usuário é feita via 
   - Spring Boot Actuator (health checks / observabilidade)
 - **PostgreSQL 16** (banco de dados principal)
 - **H2 Database** (em memória, usado apenas nos testes)
+- **Spring Security não é usado**: a autenticação é um interceptor com JWT (Nimbus JOSE + JWT)
+- **springdoc-openapi** (Swagger UI e OpenAPI 3)
+- **Flyway** (migrações de banco)
 - **Lombok** (redução de boilerplate em DTOs e entidades JPA; o domínio não usa Lombok)
 - **Maven** (build e gerenciamento de dependências)
 - **Docker / Docker Compose** (containerização da API e do banco)
@@ -66,11 +69,19 @@ implementam essas portas. O dominio nao conhece Spring, HTTP ou JPA.
 
 ### Fluxo de identificação do usuário
 
-Um `HandlerInterceptor` (`UserContextInterceptor`) intercepta todas as requisições para `/activities/**` e `/stats/**`:
+`POST /auth/anonymous` cria um `User` anônimo e devolve `{accessToken, tokenType, userId, expiresAt}`. O token é emitido e verificado pelo adapter `JwtTokenAdapter` (porta `TokenPort`, biblioteca Nimbus JOSE + JWT).
 
-1. Verifica se o header `X-User-Id` foi enviado.
-2. Se não foi enviado, cria um `User` anônimo no banco e retorna o novo id no header `X-User-Id` da resposta.
-3. Se foi enviado, apenas propaga o `userId` como atributo da requisição (`@RequestAttribute("userId")` nos controllers).
+Um `HandlerInterceptor` (`UserContextInterceptor`) intercepta as requisições para `/activities/**` e `/stats/**`:
+
+1. Exige o header `Authorization: Bearer <token>`.
+2. Valida assinatura e expiração do token e confirma que o usuário ainda existe.
+3. Propaga o `userId` como atributo da requisição (`@RequestAttribute("userId")` nos controllers).
+
+Token ausente, inválido ou expirado resulta em `401`. O segredo é configurado em `app.security.jwt.secret` (mínimo de 32 bytes; em `prod`, variável `JWT_SECRET`) e a validade em `app.security.jwt.expiration` (padrão 30 dias).
+
+### Tratamento de erros
+
+Os erros seguem o formato RFC 7807 (`ProblemDetail`, `application/problem+json`): `400` para parâmetros e payloads inválidos (com o mapa `errors` por campo na validação do body), `401` para autenticação e `500` para falhas inesperadas.
 
 ### Regras de negócio principais
 
@@ -85,12 +96,14 @@ Um `HandlerInterceptor` (`UserContextInterceptor`) intercepta todas as requisiç
 
 | Método | Rota                | Descrição                                   |
 |--------|---------------------|----------------------------------------------|
+| POST   | `/auth/anonymous`   | Cria um usuário anônimo e retorna o JWT      |
 | GET    | `/activities`       | Lista paginada das atividades (`?page=0&size=20`, máx. 100) |
 | POST   | `/activities`       | Cria uma nova atividade                      |
 | GET    | `/stats/summary`    | Retorna o resumo estatístico do usuário      |
 | GET    | `/actuator/health`  | Health check da aplicação                    |
+| GET    | `/swagger-ui.html`  | Documentação interativa (OpenAPI em `/v3/api-docs`) |
 
-Todas as rotas de negócio exigem (ou geram automaticamente) o header `X-User-Id`.
+As rotas `/activities` e `/stats` exigem o header `Authorization: Bearer <token>`.
 
 **Paginação de `GET /activities`:**
 
@@ -131,11 +144,12 @@ Uma collection pronta com todos os endpoints está disponível em [`postman/corr
 **Como importar:**
 1. Abra o Postman → `Import` → selecione os dois arquivos da pasta `postman/`.
 2. Selecione o environment **"correai-api - Local (Docker)"** no canto superior direito.
-3. Execute primeiro qualquer request de `Activities` ou `Stats` sem preencher a variável `userId` — a API criará um usuário anônimo automaticamente e um script de teste na request "Criar atividade (RUN)" já captura o `X-User-Id` da resposta e o salva na variável `userId` da collection.
-4. As próximas requisições reutilizarão esse `userId` automaticamente.
+3. Execute primeiro `Auth > Criar usuário anônimo` — o script de teste salva o token nas variáveis `accessToken` e `userId` da collection.
+4. As próximas requisições enviam `Authorization: Bearer {{accessToken}}` automaticamente.
 
 A collection contém as pastas:
-- **Activities**: listar, criar atividade (RUN/WALK) e um exemplo de payload inválido para testar as validações.
+- **Auth**: criar usuário anônimo e obter o token.
+- **Activities**: listar (paginado), criar atividade (RUN/WALK) e um exemplo de payload inválido para testar as validações.
 - **Stats**: resumo estatístico do usuário.
 - **Actuator**: health check da aplicação.
 
@@ -153,8 +167,14 @@ A collection contém as pastas:
 
 O projeto usa profiles do Spring. Com Jackson 3, a propriedade de datas é `spring.jackson.datatype.datetime.write-dates-as-timestamps` (antes ficava em `spring.jackson.serialization`).
 
-- **dev** (padrão): conecta em `jdbc:postgresql://localhost:5432/correai`, com `ddl-auto: update` e SQL logado no console.
-- **prod**: espera as variáveis de ambiente `DB_URL`, `DB_USER` e `DB_PASSWORD`, com `ddl-auto: validate`.
+- **dev** (padrão): conecta em `jdbc:postgresql://localhost:5432/correai`, com `ddl-auto: validate` (esquema gerido pelo Flyway) e SQL logado no console. Usa um segredo JWT de desenvolvimento; não use em produção.
+- **prod**: espera as variáveis de ambiente `DB_URL`, `DB_USER`, `DB_PASSWORD` e `JWT_SECRET`, com `ddl-auto: validate`.
+
+Variável opcional `CORS_ALLOWED_ORIGINS` (lista separada por vírgulas; padrão `http://localhost:3000,http://localhost:5173`) define as origens permitidas pelo CORS.
+
+### Migrações de banco (Flyway)
+
+O esquema é versionado em `src/main/resources/db/migration` (`V1__init_schema.sql`). Bancos já existentes criados pelo `ddl-auto` são adotados automaticamente (`baseline-on-migrate`). Alterações de esquema devem virar novas migrações `V<n>__descricao.sql`. Os testes usam H2 com `create-drop` e o Flyway desabilitado.
 
 ### Rodando com Docker Compose (recomendado)
 
@@ -231,6 +251,8 @@ O projeto está no Spring Boot 4.1.1, que corrige as CVEs do Spring Framework 6.
 
 - `tomcat.version` = `11.0.26`
 - `jackson-bom.version` = `3.1.7`
+- `jackson-2-bom.version` = `2.21.7` (Jackson 2 trazido pelo springdoc)
+- `logback.version` = `1.6.5`
 
 Revise esses overrides a cada atualização do Spring Boot e remova-os quando o BOM já trouxer versões corrigidas. A última varredura no OSV.dev das 121 dependências resolvidas não encontrou vulnerabilidades.
 
