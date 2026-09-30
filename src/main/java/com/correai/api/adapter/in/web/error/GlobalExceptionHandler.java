@@ -1,6 +1,7 @@
 package com.correai.api.adapter.in.web.error;
 
 import com.correai.api.domain.model.auth.InvalidTokenException;
+import com.correai.api.domain.model.goal.GoalNotFoundException;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
                 .body(problem);
+    }
+
+    @ExceptionHandler(GoalNotFoundException.class)
+    ProblemDetail handleGoalNotFound(GoalNotFoundException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+        problem.setTitle("Not Found");
+        return problem;
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

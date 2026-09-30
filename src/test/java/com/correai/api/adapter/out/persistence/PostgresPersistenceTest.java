@@ -4,10 +4,14 @@ import com.correai.api.domain.model.activity.Activity;
 import com.correai.api.domain.model.activity.ActivityType;
 import com.correai.api.domain.model.activity.PerceivedEffort;
 import com.correai.api.domain.model.activity.TrainingType;
+import com.correai.api.domain.model.goal.Goal;
+import com.correai.api.domain.model.goal.GoalPeriod;
+import com.correai.api.domain.model.goal.GoalType;
 import com.correai.api.domain.model.pagination.PageQuery;
 import com.correai.api.domain.model.pagination.PageResult;
 import com.correai.api.domain.model.user.User;
 import com.correai.api.domain.port.out.activity.ActivityRepositoryPort;
+import com.correai.api.domain.port.out.goal.GoalRepositoryPort;
 import com.correai.api.domain.port.out.user.UserRepositoryPort;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +48,9 @@ class PostgresPersistenceTest {
     @Autowired
     private ActivityRepositoryPort activityRepository;
 
+    @Autowired
+    private GoalRepositoryPort goalRepository;
+
     @Test
     void persistsAndQueriesActivitiesAgainstPostgres() {
         UUID userId = userRepository.save(User.anonymous()).id();
@@ -66,5 +73,21 @@ class PostgresPersistenceTest {
         assertEquals(2, page.totalPages());
         assertEquals("latest", page.content().getFirst().notes());
         assertNotNull(page.content().getFirst().createdAt());
+    }
+
+    @Test
+    void persistsAndQueriesGoalsAgainstPostgres() {
+        UUID userId = userRepository.save(User.anonymous()).id();
+        UUID otherUserId = userRepository.save(User.anonymous()).id();
+
+        Goal saved = goalRepository.save(Goal.create(userId, GoalType.AVG_PACE, GoalPeriod.WEEKLY, 330));
+        Goal inactive = goalRepository.save(Goal.create(userId, GoalType.ACTIVITIES, GoalPeriod.MONTHLY, 12).deactivate());
+
+        assertNotNull(saved.id());
+        assertNotNull(saved.createdAt());
+        assertEquals(1, goalRepository.findActiveByUserId(userId).size());
+        assertTrue(goalRepository.findByIdAndUserId(saved.id(), userId).isPresent());
+        assertTrue(goalRepository.findByIdAndUserId(saved.id(), otherUserId).isEmpty());
+        assertFalse(inactive.active());
     }
 }

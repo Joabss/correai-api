@@ -100,6 +100,10 @@ Os erros seguem o formato RFC 7807 (`ProblemDetail`, `application/problem+json`)
 | GET    | `/activities`       | Lista paginada das atividades (`?page=0&size=20`, máx. 100) |
 | POST   | `/activities`       | Cria uma nova atividade                      |
 | GET    | `/stats/summary`    | Retorna o resumo estatístico do usuário      |
+| GET    | `/stats/evolution`  | Evolução semanal (`?weeks=8`, de 1 a 52)     |
+| POST   | `/goals`            | Cria uma meta (substitui a ativa do mesmo tipo e período) |
+| GET    | `/goals`            | Lista as metas ativas com o progresso no período atual |
+| DELETE | `/goals/{id}`       | Desativa uma meta                            |
 | GET    | `/actuator/health`  | Health check da aplicação                    |
 | GET    | `/swagger-ui.html`  | Documentação interativa (OpenAPI em `/v3/api-docs`) |
 
@@ -121,6 +125,32 @@ As rotas `/activities` e `/stats` exigem o header `Authorization: Bearer <token>
   "totalElements": 1,
   "totalPages": 1
 }
+```
+
+**`GET /stats/evolution`:** retorna as últimas `weeks` semanas (padrão `8`, de `1` a `52`; valor inválido retorna `400`), da mais antiga para a semana atual, iniciando na segunda-feira. Semanas sem atividade vêm zeradas e com `avgPace` nulo. O pace médio da semana é a duração total dividida pela distância total.
+
+```json
+{
+  "weeks": 2,
+  "items": [
+    { "weekStart": "2026-09-21", "km": 0.0, "activities": 0, "avgPace": null },
+    { "weekStart": "2026-09-28", "km": 15.0, "activities": 2, "avgPace": "06:00" }
+  ]
+}
+```
+
+**Metas (`/goals`):** o usuário pode ter várias metas ativas, no máximo uma por combinação de tipo e período. Criar uma meta do mesmo tipo e período desativa a anterior.
+
+| `type`        | `target`                               | Meta atingida quando                |
+|---------------|----------------------------------------|-------------------------------------|
+| `DISTANCE_KM` | distância total em km                  | km do período >= `target`           |
+| `ACTIVITIES`  | número de atividades                   | atividades do período >= `target`   |
+| `AVG_PACE`    | pace médio em segundos por km          | pace do período <= `target`         |
+
+`period` é `WEEKLY` (segunda a domingo) ou `MONTHLY` (mês corrente). `GET /goals` devolve `current`, `percentage` (0 a 100, sem `percentage` para `AVG_PACE`), `achieved` e os limites do período. Metas de pace também trazem `targetPace` e `currentPace` no formato `mm:ss`. `DELETE` de uma meta inexistente ou de outro usuário retorna `404`.
+
+```json
+{ "type": "DISTANCE_KM", "period": "WEEKLY", "target": 30 }
 ```
 
 As consultas por intervalo de datas usadas nas estatísticas não são paginadas, pois alimentam somas.
@@ -150,7 +180,8 @@ Uma collection pronta com todos os endpoints está disponível em [`postman/corr
 A collection contém as pastas:
 - **Auth**: criar usuário anônimo e obter o token.
 - **Activities**: listar (paginado), criar atividade (RUN/WALK) e um exemplo de payload inválido para testar as validações.
-- **Stats**: resumo estatístico do usuário.
+- **Stats**: resumo estatístico e evolução semanal do usuário.
+- **Goals**: criar metas (km, atividades e pace), listar o progresso e desativar.
 - **Actuator**: health check da aplicação.
 
 ## Configuração e Setup
@@ -174,7 +205,7 @@ Variável opcional `CORS_ALLOWED_ORIGINS` (lista separada por vírgulas; padrão
 
 ### Migrações de banco (Flyway)
 
-O esquema é versionado em `src/main/resources/db/migration` (`V1__init_schema.sql`). Bancos já existentes criados pelo `ddl-auto` são adotados automaticamente (`baseline-on-migrate`). Alterações de esquema devem virar novas migrações `V<n>__descricao.sql`. Os testes usam H2 com `create-drop` e o Flyway desabilitado.
+O esquema é versionado em `src/main/resources/db/migration` (`V1__init_schema.sql`, `V2__create_goals.sql`). Bancos já existentes criados pelo `ddl-auto` são adotados automaticamente (`baseline-on-migrate`). Alterações de esquema devem virar novas migrações `V<n>__descricao.sql`. Os testes usam H2 com `create-drop` e o Flyway desabilitado.
 
 ### Rodando com Docker Compose (recomendado)
 

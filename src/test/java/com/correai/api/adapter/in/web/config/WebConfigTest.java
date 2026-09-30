@@ -38,7 +38,7 @@ class WebConfigTest {
         config.addInterceptors(registry);
 
         verify(registry).addInterceptor(interceptor);
-        verify(registration).addPathPatterns("/activities/**", "/stats/**");
+        verify(registration).addPathPatterns("/activities/**", "/stats/**", "/goals/**");
         verify(registration).excludePathPatterns("/actuator/**", "/error");
     }
 

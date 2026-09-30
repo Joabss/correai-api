@@ -28,6 +28,12 @@
       "value": "",
       "type": "string",
       "description": "UUID do usuário, preenchido automaticamente por POST /auth/anonymous."
+    },
+    {
+      "key": "goalId",
+      "value": "",
+      "type": "string",
+      "description": "UUID de uma meta (preenchido ao criar a meta de distância)."
     }
   ],
   "item": [
@@ -323,6 +329,208 @@
         }
       ],
       "description": "Endpoints de estatísticas agregadas do usuário."
+    },
+    {
+      "name": "Goals",
+      "item": [
+        {
+          "name": "Criar meta de distância semanal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/goals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "goals"
+              ]
+            },
+            "description": "Substitui a meta ativa do mesmo tipo e período.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"DISTANCE_KM\",\n  \"period\": \"WEEKLY\",\n  \"target\": 30\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json && json.id) {",
+                  "    pm.collectionVariables.set('goalId', json.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Criar meta de atividades mensal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/goals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "goals"
+              ]
+            },
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"ACTIVITIES\",\n  \"period\": \"MONTHLY\",\n  \"target\": 12\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Criar meta de pace semanal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/goals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "goals"
+              ]
+            },
+            "description": "target em segundos por km (330 = 05:30).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"AVG_PACE\",\n  \"period\": \"WEEKLY\",\n  \"target\": 330\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Listar metas e progresso",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/goals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "goals"
+              ]
+            },
+            "description": "Metas ativas com o progresso no período atual."
+          },
+          "response": []
+        },
+        {
+          "name": "Desativar meta",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/goals/{{goalId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "goals",
+                "{{goalId}}"
+              ]
+            },
+            "description": "Defina a variável goalId com o id de uma meta."
+          },
+          "response": []
+        }
+      ]
     },
     {
       "name": "Actuator",

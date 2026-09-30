@@ -6,6 +6,7 @@ import com.correai.api.domain.model.activity.ActivityType;
 import com.correai.api.domain.model.activity.PerceivedEffort;
 import com.correai.api.domain.model.activity.TrainingType;
 import com.correai.api.domain.port.in.stats.StatsSummary;
+import com.correai.api.domain.port.in.stats.WeeklyEvolution;
 import com.correai.api.domain.port.out.activity.ActivityRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -82,5 +83,41 @@ class StatsApplicationServiceTest {
         assertEquals(0, summary.streak());
         assertEquals(0.0, summary.longestDistance());
     }
-}
 
+    @Test
+    void getEvolution_shouldGroupActivitiesByWeekAndFillEmptyWeeks() {
+        Clock fixed = Clock.fixed(java.time.Instant.parse("2026-09-30T12:00:00Z"), java.time.ZoneOffset.UTC);
+        StatsApplicationService fixedService =
+                new StatsApplicationService(repository, new StreakCalculator(repository, fixed), fixed);
+        LocalDate currentWeek = LocalDate.of(2026, 9, 28);
+        LocalDate previousWeek = currentWeek.minusWeeks(1);
+        when(repository.findByUserIdAndActivityDateBetween(userId, previousWeek.minusWeeks(1), LocalDate.of(2026, 9, 30)))
+                .thenReturn(List.of(
+                        activityOn(10.0, 3600, LocalDate.of(2026, 9, 29)),
+                        activityOn(5.0, 1800, LocalDate.of(2026, 9, 30)),
+                        activityOn(4.0, 1440, previousWeek.plusDays(2))));
+
+        List<WeeklyEvolution> evolution = fixedService.getEvolution(userId, 3);
+
+        assertEquals(3, evolution.size());
+        assertEquals(previousWeek.minusWeeks(1), evolution.getFirst().weekStart());
+        assertEquals(0, evolution.getFirst().activities());
+        assertNull(evolution.getFirst().avgPaceSeconds());
+        assertEquals(1, evolution.get(1).activities());
+        assertEquals(360, evolution.get(1).avgPaceSeconds());
+        assertEquals(currentWeek, evolution.get(2).weekStart());
+        assertEquals(15.0, evolution.get(2).km());
+        assertEquals(2, evolution.get(2).activities());
+        assertEquals(360, evolution.get(2).avgPaceSeconds());
+    }
+
+    @Test
+    void getEvolution_withWeeksOutOfRange_shouldThrow() {
+        assertThrows(IllegalArgumentException.class, () -> service.getEvolution(userId, 0));
+        assertThrows(IllegalArgumentException.class, () -> service.getEvolution(userId, 53));
+    }
+
+    private Activity activityOn(double km, int seconds, LocalDate date) {
+        return Activity.create(userId, ActivityType.RUN, km, seconds, TrainingType.EASY, PerceivedEffort.OK, "n", date);
+    }
+}

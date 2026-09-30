@@ -39,6 +39,7 @@ badges, mobile e validacao ponta a ponta permanecem pendentes.
 | Migracoes Flyway | Implementadas (`V1__init_schema.sql`) |
 | `GET /activities/{id}` | Pendente |
 | Editar/excluir atividade | Pendente |
+| Metas (`/goals`): km, atividades e pace, semanal/mensal, varias ativas | Implementado |
 | `GET /stats/evolution` | Implementado (semanal, `weeks` de 1 a 52) |
 | Goals | Pendente |
 | PlannedActivity | Pendente |
@@ -69,7 +70,7 @@ badges, mobile e validacao ponta a ponta permanecem pendentes.
 
 Concluir a fundacao do backend antes de iniciar novas telas:
 
-1. Implementar Goal e somente depois planejamento e badges.
+1. Implementar planejamento e badges.
 2. Iniciar o mobile com onboarding, registro, home e historico conectados a API.
 
 ## Criterio para encerrar a Fase 1
@@ -79,5 +80,5 @@ Concluir a fundacao do backend antes de iniciar novas telas:
 - Banco criado e atualizado por migracoes versionadas (feito com Flyway).
 - Identidade anonima nao permite acesso por UUID arbitrario (feito com JWT).
 - Persistencia validada contra PostgreSQL (feito com Testcontainers).
-- Endpoints de atividades, resumo, evolucao e meta ativa implementados e
+- Endpoints de atividades, resumo, evolucao e metas implementados (feito) e
   documentados.
