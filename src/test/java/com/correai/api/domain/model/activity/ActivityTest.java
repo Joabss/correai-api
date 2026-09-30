@@ -12,7 +12,7 @@ class ActivityTest {
 
     @Test
     void create_shouldCreateActivityWithCorrectValues() {
-        Activity activity = Activity.create(userId, ActivityType.RUN, 10.0, 3600, TrainingType.EASY, PerceivedEffort.OK, "Test");
+        Activity activity = Activity.create(userId, ActivityType.RUN, 10.0, 3600, TrainingType.EASY, PerceivedEffort.OK, "Test", LocalDate.now());
 
         assertNotNull(activity);
         assertNull(activity.id());
@@ -30,41 +30,41 @@ class ActivityTest {
     @Test
     void create_withZeroDistance_shouldThrowException() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> Activity.create(userId, ActivityType.RUN, 0.0, 3600, TrainingType.EASY, PerceivedEffort.OK, "Test"));
+                () -> Activity.create(userId, ActivityType.RUN, 0.0, 3600, TrainingType.EASY, PerceivedEffort.OK, "Test", LocalDate.now()));
         assertEquals("Distance must be greater than zero", exception.getMessage());
     }
 
     @Test
     void create_withNegativeDistance_shouldThrowException() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> Activity.create(userId, ActivityType.RUN, -1.0, 3600, TrainingType.EASY, PerceivedEffort.OK, "Test"));
+                () -> Activity.create(userId, ActivityType.RUN, -1.0, 3600, TrainingType.EASY, PerceivedEffort.OK, "Test", LocalDate.now()));
         assertEquals("Distance must be greater than zero", exception.getMessage());
     }
 
     @Test
     void create_withZeroDuration_shouldThrowException() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> Activity.create(userId, ActivityType.RUN, 10.0, 0, TrainingType.EASY, PerceivedEffort.OK, "Test"));
+                () -> Activity.create(userId, ActivityType.RUN, 10.0, 0, TrainingType.EASY, PerceivedEffort.OK, "Test", LocalDate.now()));
         assertEquals("Duration must be greater than zero", exception.getMessage());
     }
 
     @Test
     void create_withNegativeDuration_shouldThrowException() {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
-                () -> Activity.create(userId, ActivityType.RUN, 10.0, -1, TrainingType.EASY, PerceivedEffort.OK, "Test"));
+                () -> Activity.create(userId, ActivityType.RUN, 10.0, -1, TrainingType.EASY, PerceivedEffort.OK, "Test", LocalDate.now()));
         assertEquals("Duration must be greater than zero", exception.getMessage());
     }
 
     @Test
     void create_withNullUserId_shouldThrowException() {
         assertThrows(NullPointerException.class,
-                () -> Activity.create(null, ActivityType.RUN, 10.0, 3600, TrainingType.EASY, PerceivedEffort.OK, "Test"));
+                () -> Activity.create(null, ActivityType.RUN, 10.0, 3600, TrainingType.EASY, PerceivedEffort.OK, "Test", LocalDate.now()));
     }
 
     @Test
     void create_withNullType_shouldThrowException() {
         assertThrows(NullPointerException.class,
-                () -> Activity.create(userId, null, 10.0, 3600, TrainingType.EASY, PerceivedEffort.OK, "Test"));
+                () -> Activity.create(userId, null, 10.0, 3600, TrainingType.EASY, PerceivedEffort.OK, "Test", LocalDate.now()));
     }
 
     @Test

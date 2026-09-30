@@ -32,10 +32,11 @@ public record Activity(
 
     /** Creates a brand-new Activity (not yet persisted). */
     public static Activity create(UUID userId, ActivityType type, double distanceKm, int durationSeconds,
-                                   TrainingType trainingType, PerceivedEffort perceivedEffort, String notes) {
+                                   TrainingType trainingType, PerceivedEffort perceivedEffort, String notes,
+                                   LocalDate activityDate) {
         validate(distanceKm, durationSeconds);
         int pace = calculatePace(distanceKm, durationSeconds);
-        return new Activity(null, userId, type, LocalDate.now(), distanceKm, durationSeconds, pace,
+        return new Activity(null, userId, type, activityDate, distanceKm, durationSeconds, pace,
                 trainingType, perceivedEffort, notes, null);
     }
 

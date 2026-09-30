@@ -1,6 +1,7 @@
 package com.correai.api.config;
 
 import com.correai.api.application.activity.ActivityApplicationService;
+import com.correai.api.application.common.StreakCalculator;
 import com.correai.api.application.stats.StatsApplicationService;
 import com.correai.api.application.auth.AuthApplicationService;
 import com.correai.api.domain.port.out.activity.ActivityRepositoryPort;
@@ -9,17 +10,31 @@ import com.correai.api.domain.port.out.user.UserRepositoryPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Clock;
+
 @Configuration
 public class BeanConfig {
 
     @Bean
-    public ActivityApplicationService activityApplicationService(ActivityRepositoryPort repository) {
-        return new ActivityApplicationService(repository);
+    public Clock clock() {
+        return Clock.systemDefaultZone();
     }
 
     @Bean
-    public StatsApplicationService statsApplicationService(ActivityRepositoryPort repository) {
-        return new StatsApplicationService(repository);
+    public StreakCalculator streakCalculator(ActivityRepositoryPort repository, Clock clock) {
+        return new StreakCalculator(repository, clock);
+    }
+
+    @Bean
+    public ActivityApplicationService activityApplicationService(
+            ActivityRepositoryPort repository, StreakCalculator streakCalculator, Clock clock) {
+        return new ActivityApplicationService(repository, streakCalculator, clock);
+    }
+
+    @Bean
+    public StatsApplicationService statsApplicationService(
+            ActivityRepositoryPort repository, StreakCalculator streakCalculator, Clock clock) {
+        return new StatsApplicationService(repository, streakCalculator, clock);
     }
 
     @Bean

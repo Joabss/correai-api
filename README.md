@@ -40,7 +40,7 @@ Não há cadastro/login: o cliente chama `POST /auth/anonymous`, que cria um usu
 - **Lombok** (redução de boilerplate em DTOs e entidades JPA; o domínio não usa Lombok)
 - **Maven** (build e gerenciamento de dependências)
 - **Docker / Docker Compose** (containerização da API e do banco)
-- **JUnit 5 + Mockito** (testes unitários) e `spring-boot-starter-webmvc-test` (`@WebMvcTest`)
+- **JUnit 5 + Mockito** (testes unitários), **Testcontainers** e **ArchUnit** e `spring-boot-starter-webmvc-test` (`@WebMvcTest`)
 
 ## Arquitetura
 
@@ -263,6 +263,13 @@ Revise esses overrides a cada atualização do Spring Boot e remova-os quando o 
 ```
 
 Os testes utilizam **H2** em memória, isolando-os de uma instância real do Postgres.
+
+Além disso:
+
+- `PostgresPersistenceTest` usa **Testcontainers** (PostgreSQL 16) para executar as migrações Flyway e validar o mapeamento JPA contra um Postgres real. Requer Docker; sem Docker o teste é ignorado (assim o build dentro do `Dockerfile` continua funcionando).
+- `HexagonalArchitectureTest` usa **ArchUnit** para garantir as fronteiras da arquitetura (domínio sem dependência de framework, application sem adapters, adapters `in` e `out` isolados).
+
+O tempo vem de um `Clock` injetado (`BeanConfig`), e o cálculo de streak fica em `StreakCalculator`, compartilhado pelos casos de uso de atividade e estatísticas.
 
 ## Estrutura de pastas (resumo)
 

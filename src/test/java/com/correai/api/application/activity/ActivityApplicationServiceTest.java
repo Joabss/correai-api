@@ -1,5 +1,6 @@
 package com.correai.api.application.activity;
 
+import com.correai.api.application.common.StreakCalculator;
 import com.correai.api.domain.model.activity.Activity;
 import com.correai.api.domain.model.activity.ActivityType;
 import com.correai.api.domain.model.activity.PerceivedEffort;
@@ -12,10 +13,10 @@ import com.correai.api.domain.port.out.activity.ActivityRepositoryPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -30,7 +31,6 @@ class ActivityApplicationServiceTest {
     @Mock
     private ActivityRepositoryPort repository;
 
-    @InjectMocks
     private ActivityApplicationService service;
 
     private UUID userId;
@@ -39,6 +39,8 @@ class ActivityApplicationServiceTest {
 
     @BeforeEach
     void setUp() {
+        Clock clock = Clock.systemDefaultZone();
+        service = new ActivityApplicationService(repository, new StreakCalculator(repository, clock), clock);
         userId = UUID.randomUUID();
         command = new CreateActivityCommand(userId, ActivityType.RUN, 10.0, 3600, TrainingType.EASY, PerceivedEffort.OK, "Test run");
         activity = Activity.reconstruct(UUID.randomUUID(), userId, ActivityType.RUN, LocalDate.now(), 10.0, 3600, 360,
