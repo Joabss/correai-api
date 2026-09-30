@@ -27,17 +27,17 @@ Não há autenticação tradicional: a identificação do usuário é feita via 
 ## Stack Tecnológica
 
 - **Java 25 LTS**
-- **Spring Boot 3.5.11**
-  - Spring Web (REST controllers)
+- **Spring Boot 4.1.1** (Spring Framework 7, Jakarta EE 11, Hibernate 7, Tomcat 11, Jackson 3)
+  - Spring Web MVC (`spring-boot-starter-webmvc`, REST controllers)
   - Spring Data JPA (persistência)
   - Spring Validation (Bean Validation / `jakarta.validation`)
   - Spring Boot Actuator (health checks / observabilidade)
 - **PostgreSQL 16** (banco de dados principal)
 - **H2 Database** (em memória, usado apenas nos testes)
-- **Lombok** (redução de boilerplate em DTOs e entidades)
+- **Lombok** (redução de boilerplate em DTOs e entidades JPA; o domínio não usa Lombok)
 - **Maven** (build e gerenciamento de dependências)
 - **Docker / Docker Compose** (containerização da API e do banco)
-- **JUnit 5 + Mockito** (testes unitários)
+- **JUnit 5 + Mockito** (testes unitários) e `spring-boot-starter-webmvc-test` (`@WebMvcTest`)
 
 ## Arquitetura
 
@@ -46,17 +46,23 @@ O projeto segue arquitetura hexagonal dentro do pacote `com.correai.api`:
 ```
 com.correai.api
 ├── domain/
-│   ├── model/      # Modelo e regras de negócio sem dependências de framework
-│   └── port/       # Portas de entrada (casos de uso) e saída (persistência)
-├── application/    # Implementação e orquestração dos casos de uso
+│   ├── model/      # Records de domínio (User, Activity), paginação (PageQuery/PageResult) e regras de negócio
+│   └── port/
+│       ├── in/     # Casos de uso, organizados por feature (activity, stats, user)
+│       └── out/    # Portas de persistência, organizadas por feature (activity, user)
+├── application/    # Implementação e orquestração dos casos de uso (sem anotações Spring)
+├── config/         # BeanConfig: registra os services de aplicação como beans
 └── adapter/
-  ├── in/web/     # Controllers, configuração web e DTOs REST
+  ├── in/web/     # Controllers, configuração web, DTOs REST e PageResponse
   └── out/persistence/ # Entidades JPA, mapeadores e adapters de repositório
 ```
 
 As dependencias apontam para o dominio: adapters de entrada chamam portas de
 entrada, servicos de aplicacao usam portas de saida e os adapters de persistencia
 implementam essas portas. O dominio nao conhece Spring, HTTP ou JPA.
+
+- Os modelos `User` e `Activity` são `record`s imutáveis, acessados por `id()`, `distanceKm()` etc. (sem getters `getX()`).
+- Os services de `application` não usam `@Service`; são instanciados em `config/BeanConfig`.
 
 ### Fluxo de identificação do usuário
 
@@ -70,7 +76,7 @@ Um `HandlerInterceptor` (`UserContextInterceptor`) intercepta todas as requisiç
 
 - `Activity` calcula automaticamente o **pace médio** (`avgPaceSeconds`) a partir da distância e duração informadas.
 - Distância e duração devem ser maiores que zero (validado tanto via Bean Validation no DTO quanto na entidade de domínio).
-- `StatsService` calcula:
+- `StatsApplicationService` calcula:
   - Soma de distâncias da semana (segunda-feira até hoje) e do mês (dia 1 até hoje).
   - Streak: dias consecutivos, a partir de hoje, com pelo menos uma atividade registrada.
   - Maior distância entre todas as atividades do usuário.
@@ -85,6 +91,26 @@ Um `HandlerInterceptor` (`UserContextInterceptor`) intercepta todas as requisiç
 | GET    | `/actuator/health`  | Health check da aplicação                    |
 
 Todas as rotas de negócio exigem (ou geram automaticamente) o header `X-User-Id`.
+
+**Paginação de `GET /activities`:**
+
+- Parâmetros: `page` (padrão `0`) e `size` (padrão `20`, entre `1` e `100`). Valores inválidos retornam `400`.
+- Ordenação: `activityDate` decrescente e, em caso de empate, `createdAt` decrescente.
+- A resposta é um objeto paginado, não mais um array:
+
+```json
+{
+  "content": [
+    { "id": "...", "type": "RUN", "date": "2026-09-30", "distanceKm": 5.2, "avgPace": "04:48", "durationSeconds": 1500 }
+  ],
+  "page": 0,
+  "size": 20,
+  "totalElements": 1,
+  "totalPages": 1
+}
+```
+
+As consultas por intervalo de datas usadas nas estatísticas não são paginadas, pois alimentam somas.
 
 **Exemplo de payload para `POST /activities`:**
 ```json
@@ -125,7 +151,7 @@ A collection contém as pastas:
 
 ### Perfis de configuração (`application.yaml`)
 
-O projeto usa profiles do Spring:
+O projeto usa profiles do Spring. Com Jackson 3, a propriedade de datas é `spring.jackson.datatype.datetime.write-dates-as-timestamps` (antes ficava em `spring.jackson.serialization`).
 
 - **dev** (padrão): conecta em `jdbc:postgresql://localhost:5432/correai`, com `ddl-auto: update` e SQL logado no console.
 - **prod**: espera as variáveis de ambiente `DB_URL`, `DB_USER` e `DB_PASSWORD`, com `ddl-auto: validate`.
@@ -198,6 +224,15 @@ O artefato gerado ficará em `target/api-0.0.1-SNAPSHOT.jar`.
 O ambiente local precisa apontar `JAVA_HOME` para um JDK 25. O build da imagem
 Docker executa `mvn clean verify` com Temurin 25 antes de criar a imagem de
 runtime.
+
+### Segurança das dependências
+
+O projeto está no Spring Boot 4.1.1, que corrige as CVEs do Spring Framework 6.2, Spring Data JPA e Micrometer que não tinham patch na linha 3.5. O `pom.xml` mantém overrides de versões gerenciadas pelo BOM para corrigir CVEs ainda abertas nelas:
+
+- `tomcat.version` = `11.0.26`
+- `jackson-bom.version` = `3.1.7`
+
+Revise esses overrides a cada atualização do Spring Boot e remova-os quando o BOM já trouxer versões corrigidas. A última varredura no OSV.dev das 121 dependências resolvidas não encontrou vulnerabilidades.
 
 ### Rodando os testes
 
