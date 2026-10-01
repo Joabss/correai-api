@@ -34,6 +34,12 @@
       "value": "",
       "type": "string",
       "description": "UUID de uma meta (preenchido ao criar a meta de distância)."
+    },
+    {
+      "key": "activityId",
+      "value": "",
+      "type": "string",
+      "description": "UUID de uma atividade."
     }
   ],
   "item": [
@@ -251,6 +257,62 @@
                   "value": "{{accessToken}}",
                   "type": "string"
                 }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Detalhe da atividade",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/activities/{{activityId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activities",
+                "{{activityId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remover atividade",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/activities/{{activityId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "activities",
+                "{{activityId}}"
               ]
             }
           },

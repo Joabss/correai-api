@@ -8,6 +8,9 @@ import com.correai.api.domain.model.pagination.PageQuery;
 import com.correai.api.domain.model.pagination.PageResult;
 import com.correai.api.domain.port.in.activity.ActivityCreationResult;
 import com.correai.api.domain.port.in.activity.CreateActivityUseCase;
+import com.correai.api.domain.port.in.activity.DeleteActivityUseCase;
+import com.correai.api.domain.port.in.activity.GetActivityUseCase;
+import com.correai.api.domain.model.activity.ActivityNotFoundException;
 import com.correai.api.domain.port.in.activity.ListActivitiesUseCase;
 import com.correai.api.adapter.in.web.activity.dto.ActivityRequest;
 import com.correai.api.adapter.in.web.config.UserContextInterceptor;
@@ -45,6 +48,12 @@ class ActivityControllerTest {
 
     @MockitoBean
     private ListActivitiesUseCase listActivitiesUseCase;
+
+    @MockitoBean
+    private GetActivityUseCase getActivityUseCase;
+
+    @MockitoBean
+    private DeleteActivityUseCase deleteActivityUseCase;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -84,6 +93,34 @@ class ActivityControllerTest {
                 .andExpect(jsonPath("$.totalPages").value(1));
 
         verify(listActivitiesUseCase).list(userId, new PageQuery(0, 20));
+    }
+
+    @Test
+    void get_shouldReturnActivityDetail() throws Exception {
+        when(getActivityUseCase.get(userId, activity.id())).thenReturn(activity);
+
+        mockMvc.perform(get("/activities/{id}", activity.id()).requestAttr("userId", userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(activity.id().toString()))
+                .andExpect(jsonPath("$.notes").value("Test run"))
+                .andExpect(jsonPath("$.trainingType").value("EASY"));
+    }
+
+    @Test
+    void get_unknownActivity_shouldReturnNotFound() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(getActivityUseCase.get(userId, id)).thenThrow(new ActivityNotFoundException());
+
+        mockMvc.perform(get("/activities/{id}", id).requestAttr("userId", userId))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void delete_shouldReturnNoContent() throws Exception {
+        mockMvc.perform(delete("/activities/{id}", activity.id()).requestAttr("userId", userId))
+                .andExpect(status().isNoContent());
+
+        verify(deleteActivityUseCase).delete(userId, activity.id());
     }
 
     @Test

@@ -81,6 +81,41 @@ class ActivityApplicationServiceTest {
     }
 
     @Test
+    void get_shouldReturnActivityOfUser() {
+        when(repository.findByIdAndUserId(activity.id(), userId)).thenReturn(java.util.Optional.of(activity));
+
+        assertEquals(activity, service.get(userId, activity.id()));
+    }
+
+    @Test
+    void get_unknownActivity_shouldThrowNotFound() {
+        UUID id = UUID.randomUUID();
+        when(repository.findByIdAndUserId(id, userId)).thenReturn(java.util.Optional.empty());
+
+        assertThrows(com.correai.api.domain.model.activity.ActivityNotFoundException.class,
+                () -> service.get(userId, id));
+    }
+
+    @Test
+    void delete_shouldRemoveActivity() {
+        when(repository.findByIdAndUserId(activity.id(), userId)).thenReturn(java.util.Optional.of(activity));
+
+        service.delete(userId, activity.id());
+
+        verify(repository).delete(activity);
+    }
+
+    @Test
+    void delete_unknownActivity_shouldNotDelete() {
+        UUID id = UUID.randomUUID();
+        when(repository.findByIdAndUserId(id, userId)).thenReturn(java.util.Optional.empty());
+
+        assertThrows(com.correai.api.domain.model.activity.ActivityNotFoundException.class,
+                () -> service.delete(userId, id));
+        verify(repository, never()).delete(any());
+    }
+
+    @Test
     void create_withInvalidDistance_shouldThrowException() {
         CreateActivityCommand invalid = new CreateActivityCommand(userId, ActivityType.RUN, 0.0, 3600, TrainingType.EASY, PerceivedEffort.OK, "Test");
 

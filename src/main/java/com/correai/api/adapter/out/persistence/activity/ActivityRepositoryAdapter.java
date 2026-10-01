@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Component
@@ -29,6 +30,16 @@ public class ActivityRepositoryAdapter implements ActivityRepositoryPort {
     public Activity save(Activity activity) {
         ActivityEntity saved = jpaRepository.save(mapper.toEntity(activity));
         return mapper.toDomain(saved);
+    }
+
+    @Override
+    public Optional<Activity> findByIdAndUserId(UUID id, UUID userId) {
+        return jpaRepository.findByIdAndUserId(id, userId).map(mapper::toDomain);
+    }
+
+    @Override
+    public void delete(Activity activity) {
+        jpaRepository.deleteById(activity.id());
     }
 
     @Override

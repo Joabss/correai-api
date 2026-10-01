@@ -1,6 +1,8 @@
 package com.correai.api.adapter.in.web.activity.dto;
 
 import com.correai.api.domain.model.activity.ActivityType;
+import com.correai.api.domain.model.activity.PerceivedEffort;
+import com.correai.api.domain.model.activity.TrainingType;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -17,5 +19,8 @@ public class ActivityItemResponse {
     private Double distanceKm;
     private String avgPace;
     private Integer durationSeconds;
+    private TrainingType trainingType;
+    private PerceivedEffort perceivedEffort;
+    private String notes;
 }
 

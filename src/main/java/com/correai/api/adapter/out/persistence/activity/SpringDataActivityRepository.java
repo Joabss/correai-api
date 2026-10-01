@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface SpringDataActivityRepository extends JpaRepository<ActivityEntity, UUID> {
@@ -18,6 +19,8 @@ public interface SpringDataActivityRepository extends JpaRepository<ActivityEnti
 
     @Query("select max(a.distanceKm) from ActivityEntity a where a.userId = :userId")
     Double findLongestDistance(@Param("userId") UUID userId);
+
+    Optional<ActivityEntity> findByIdAndUserId(UUID id, UUID userId);
 
     Page<ActivityEntity> findByUserId(UUID userId, Pageable pageable);
 }

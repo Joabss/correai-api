@@ -1,5 +1,6 @@
 package com.correai.api.adapter.in.web.error;
 
+import com.correai.api.domain.model.activity.ActivityNotFoundException;
 import com.correai.api.domain.model.auth.InvalidTokenException;
 import com.correai.api.domain.model.goal.GoalNotFoundException;
 import org.jspecify.annotations.NonNull;
@@ -33,8 +34,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(problem);
     }
 
-    @ExceptionHandler(GoalNotFoundException.class)
-    ProblemDetail handleGoalNotFound(GoalNotFoundException exception) {
+    @ExceptionHandler({GoalNotFoundException.class, ActivityNotFoundException.class})
+    ProblemDetail handleNotFound(RuntimeException exception) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
         problem.setTitle("Not Found");
         return problem;

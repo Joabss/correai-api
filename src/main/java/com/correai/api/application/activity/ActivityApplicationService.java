@@ -2,6 +2,9 @@ package com.correai.api.application.activity;
 
 import com.correai.api.application.common.StreakCalculator;
 import com.correai.api.domain.model.activity.Activity;
+import com.correai.api.domain.model.activity.ActivityNotFoundException;
+import com.correai.api.domain.port.in.activity.DeleteActivityUseCase;
+import com.correai.api.domain.port.in.activity.GetActivityUseCase;
 import com.correai.api.domain.model.pagination.PageQuery;
 import com.correai.api.domain.model.pagination.PageResult;
 import com.correai.api.domain.port.in.activity.ActivityCreationResult;
@@ -15,7 +18,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-public class ActivityApplicationService implements CreateActivityUseCase, ListActivitiesUseCase {
+public class ActivityApplicationService implements CreateActivityUseCase, ListActivitiesUseCase,
+        GetActivityUseCase, DeleteActivityUseCase {
 
     private final ActivityRepositoryPort repository;
     private final StreakCalculator streakCalculator;
@@ -51,6 +55,16 @@ public class ActivityApplicationService implements CreateActivityUseCase, ListAc
     @Override
     public PageResult<Activity> list(UUID userId, PageQuery pageQuery) {
         return repository.findByUserIdOrderByActivityDateDesc(userId, pageQuery);
+    }
+
+    @Override
+    public Activity get(UUID userId, UUID activityId) {
+        return repository.findByIdAndUserId(activityId, userId).orElseThrow(ActivityNotFoundException::new);
+    }
+
+    @Override
+    public void delete(UUID userId, UUID activityId) {
+        repository.delete(get(userId, activityId));
     }
 
     private double totalKmCurrentMonth(UUID userId) {

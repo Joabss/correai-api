@@ -101,6 +101,8 @@ Os erros seguem o formato RFC 7807 (`ProblemDetail`, `application/problem+json`)
 | POST   | `/activities`       | Cria uma nova atividade                      |
 | GET    | `/stats/summary`    | Retorna o resumo estatístico do usuário      |
 | GET    | `/stats/evolution`  | Evolução semanal (`?weeks=8`, de 1 a 52)     |
+| GET    | `/activities/{id}`  | Detalhe de uma atividade (inclui tipo de treino, esforço e notas) |
+| DELETE | `/activities/{id}`  | Remove uma atividade (404 se não for do usuário) |
 | POST   | `/goals`            | Cria uma meta (substitui a ativa do mesmo tipo e período) |
 | GET    | `/goals`            | Lista as metas ativas com o progresso no período atual |
 | DELETE | `/goals/{id}`       | Desativa uma meta                            |
@@ -317,3 +319,5 @@ correai-api/
 │       ├── java/com/correai/api/...
 │       └── resources/application.yaml
 ```
+
+> Em produção (`prod`) o Swagger UI e `/v3/api-docs` ficam desativados.

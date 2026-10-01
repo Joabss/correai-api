@@ -6,6 +6,7 @@ import com.correai.api.domain.model.pagination.PageResult;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -14,6 +15,10 @@ import java.util.UUID;
 public interface ActivityRepositoryPort {
 
     Activity save(Activity activity);
+
+    Optional<Activity> findByIdAndUserId(UUID id, UUID userId);
+
+    void delete(Activity activity);
 
     PageResult<Activity> findByUserIdOrderByActivityDateDesc(UUID userId, PageQuery pageQuery);
 
