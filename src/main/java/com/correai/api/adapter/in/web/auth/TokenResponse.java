@@ -5,9 +5,10 @@ import com.correai.api.domain.model.auth.AuthToken;
 import java.time.Instant;
 import java.util.UUID;
 
-public record TokenResponse(String accessToken, String tokenType, UUID userId, Instant expiresAt) {
+public record TokenResponse(
+        String accessToken, String tokenType, UUID userId, Instant expiresAt, String refreshToken) {
 
     public static TokenResponse from(AuthToken token) {
-        return new TokenResponse(token.token(), "Bearer", token.userId(), token.expiresAt());
+        return new TokenResponse(token.token(), "Bearer", token.userId(), token.expiresAt(), token.refreshToken());
     }
 }

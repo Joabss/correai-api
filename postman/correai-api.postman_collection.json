@@ -18,6 +18,18 @@
       "description": "JWT retornado por POST /auth/anonymous (preenchido automaticamente)."
     },
     {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string",
+      "description": "Refresh token de uso único (preenchido automaticamente por anonymous, login, criar usuário e refresh)."
+    },
+    {
+      "key": "resetToken",
+      "value": "",
+      "type": "string",
+      "description": "Token de recuperação de senha (colar manualmente; em dev aparece no log com app.security.password-reset.log-token=true)."
+    },
+    {
       "key": "activityId",
       "value": "",
       "type": "string",
@@ -55,6 +67,7 @@
                 "exec": [
                   "const json = pm.response.json();",
                   "pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', json.refreshToken);",
                   "pm.collectionVariables.set('userId', json.userId);"
                 ],
                 "type": "text/javascript"
@@ -75,6 +88,261 @@
               ]
             },
             "description": "Cria um usuário anônimo e retorna um JWT (Bearer). O token é salvo automaticamente na variável accessToken."
+          },
+          "response": []
+                    },
+                    {
+                      "name": "Login",
+                      "event": [
+                        {
+                          "listen": "test",
+                          "script": {
+                            "exec": [
+                              "const json = pm.response.json();",
+                              "pm.collectionVariables.set('accessToken', json.accessToken);",
+                              "pm.collectionVariables.set('refreshToken', json.refreshToken);",
+                              "pm.collectionVariables.set('userId', json.userId);"
+                            ],
+                            "type": "text/javascript"
+                          }
+                        }
+                      ],
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Content-Type",
+                            "value": "application/json"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\n  \"email\": \"ana@example.com\",\n  \"password\": \"senha-segura-123\"\n}"
+                        },
+                        "url": {
+                          "raw": "{{baseUrl}}/auth/login",
+                          "host": [
+                            "{{baseUrl}}"
+                          ],
+                          "path": [
+                            "auth",
+                            "login"
+                          ]
+                        },
+                        "description": "Autentica um usuário cadastrado por e-mail e senha e retorna um JWT (Bearer). 401 se as credenciais forem inválidas. O token, o refreshToken e o userId são salvos automaticamente."
+                      },
+                      "response": []
+                                            },
+                                            {
+                                              "name": "Refresh token",
+                                              "event": [
+                                                {
+                                                  "listen": "test",
+                                                  "script": {
+                                                    "exec": [
+                                                      "const json = pm.response.json();",
+                                                      "pm.collectionVariables.set('accessToken', json.accessToken);",
+                                                      "pm.collectionVariables.set('refreshToken', json.refreshToken);"
+                                                    ],
+                                                    "type": "text/javascript"
+                                                  }
+                                                }
+                                              ],
+                                              "request": {
+                                                "method": "POST",
+                                                "header": [
+                                                  {
+                                                    "key": "Content-Type",
+                                                    "value": "application/json"
+                                                  }
+                                                ],
+                                                "body": {
+                                                  "mode": "raw",
+                                                  "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+                                                },
+                                                "url": {
+                                                  "raw": "{{baseUrl}}/auth/refresh",
+                                                  "host": [
+                                                    "{{baseUrl}}"
+                                                  ],
+                                                  "path": [
+                                                    "auth",
+                                                    "refresh"
+                                                  ]
+                                                },
+                                                "description": "Troca o refresh token (uso único) por um novo JWT e um novo refresh token. 401 se for inválido, expirado ou já usado."
+                                              },
+                                              "response": []
+                                            },
+                                            {
+                                              "name": "Recuperar senha - solicitar",
+                                              "request": {
+                                                "method": "POST",
+                                                "header": [
+                                                  {
+                                                    "key": "Content-Type",
+                                                    "value": "application/json"
+                                                  }
+                                                ],
+                                                "body": {
+                                                  "mode": "raw",
+                                                  "raw": "{\n  \"email\": \"ana@example.com\"\n}"
+                                                },
+                                                "url": {
+                                                  "raw": "{{baseUrl}}/auth/password-reset/request",
+                                                  "host": [
+                                                    "{{baseUrl}}"
+                                                  ],
+                                                  "path": [
+                                                    "auth",
+                                                    "password-reset",
+                                                    "request"
+                                                  ]
+                                                },
+                                                "description": "Solicita a recuperação de senha. Sempre retorna 202, exista o e-mail ou não."
+                                              },
+                                              "response": []
+                                            },
+                                            {
+                                              "name": "Recuperar senha - confirmar",
+                                              "request": {
+                                                "method": "POST",
+                                                "header": [
+                                                  {
+                                                    "key": "Content-Type",
+                                                    "value": "application/json"
+                                                  }
+                                                ],
+                                                "body": {
+                                                  "mode": "raw",
+                                                  "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"newPassword\": \"nova-senha-123\"\n}"
+                                                },
+                                                "url": {
+                                                  "raw": "{{baseUrl}}/auth/password-reset/confirm",
+                                                  "host": [
+                                                    "{{baseUrl}}"
+                                                  ],
+                                                  "path": [
+                                                    "auth",
+                                                    "password-reset",
+                                                    "confirm"
+                                                  ]
+                                                },
+                                                "description": "Define a nova senha (8-72 caracteres) com o token recebido. 204 em sucesso; 400 senha inválida; 401 token inválido/expirado. Revoga todos os refresh tokens do usuário."
+                                              },
+                                              "response": []
+                                            }
+                  ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Criar usuário",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('accessToken', json.accessToken);",
+                  "pm.collectionVariables.set('refreshToken', json.refreshToken);",
+                  "pm.collectionVariables.set('userId', json.userId);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ana\",\n  \"email\": \"ana@example.com\",\n  \"password\": \"senha-segura-123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "description": "Cadastra um usuário com nome, e-mail e senha (8-72 caracteres) e retorna um JWT (Bearer). 409 se o e-mail já existir. O token e o userId são salvos automaticamente."
+          },
+          "response": []
+        },
+        {
+          "name": "Usuário autenticado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            },
+            "description": "Retorna o usuário dono do token atual (id, name, email, anonymous, createdAt).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Converter em conta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ana\",\n  \"email\": \"ana@example.com\",\n  \"password\": \"senha-segura-123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/me/account",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "account"
+              ]
+            },
+            "description": "Converte o usuário autenticado (anônimo ou legado só com nome) em conta com e-mail e senha, mantendo o histórico. 409 se já tiver conta ou o e-mail já existir.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
           },
           "response": []
         }

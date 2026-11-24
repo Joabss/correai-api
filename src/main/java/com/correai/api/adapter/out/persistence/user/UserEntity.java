@@ -19,6 +19,14 @@ public class UserEntity {
     @GeneratedValue
     private UUID id;
 
+    private String name;
+
+    @Column(unique = true, length = 254)
+    private String email;
+
+    @Column(length = 100)
+    private String passwordHash;
+
     private Instant createdAt;
 
     @PrePersist

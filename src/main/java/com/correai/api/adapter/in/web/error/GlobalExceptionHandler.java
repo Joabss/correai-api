@@ -1,8 +1,12 @@
 package com.correai.api.adapter.in.web.error;
 
 import com.correai.api.domain.model.activity.ActivityNotFoundException;
+import com.correai.api.domain.model.auth.InvalidCredentialsException;
 import com.correai.api.domain.model.auth.InvalidTokenException;
+import com.correai.api.domain.model.user.AccountAlreadyRegisteredException;
+import com.correai.api.domain.model.user.EmailAlreadyRegisteredException;
 import com.correai.api.domain.model.goal.GoalNotFoundException;
+import com.correai.api.domain.model.user.UserNotFoundException;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +38,23 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(problem);
     }
 
-    @ExceptionHandler({GoalNotFoundException.class, ActivityNotFoundException.class})
+    @ExceptionHandler(InvalidCredentialsException.class)
+    ResponseEntity<ProblemDetail> handleInvalidCredentials(InvalidCredentialsException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, exception.getMessage());
+        problem.setTitle("Unauthorized");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(HttpHeaders.WWW_AUTHENTICATE, "Bearer")
+                .body(problem);
+    }
+
+    @ExceptionHandler({EmailAlreadyRegisteredException.class, AccountAlreadyRegisteredException.class})
+    ProblemDetail handleEmailAlreadyRegistered(RuntimeException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+        problem.setTitle("Conflict");
+        return problem;
+    }
+
+    @ExceptionHandler({GoalNotFoundException.class, ActivityNotFoundException.class, UserNotFoundException.class})
     ProblemDetail handleNotFound(RuntimeException exception) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
         problem.setTitle("Not Found");

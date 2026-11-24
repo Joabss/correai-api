@@ -1,4 +1,4 @@
-CREATE TABLE goals (
+CREATE TABLE ${flyway:defaultSchema}.goals (
     id         UUID PRIMARY KEY,
     user_id    UUID             NOT NULL,
     type       VARCHAR(255)     NOT NULL,
@@ -8,4 +8,4 @@ CREATE TABLE goals (
     created_at TIMESTAMP(6) WITH TIME ZONE
 );
 
-CREATE INDEX idx_goals_user_active ON goals (user_id, active);
+CREATE INDEX idx_goals_user_active ON ${flyway:defaultSchema}.goals (user_id, active);

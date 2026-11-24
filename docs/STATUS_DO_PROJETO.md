@@ -1,13 +1,13 @@
 # Status do projeto CorreAI
 
-Atualizado em 2026-09-04 a partir das notas em
+Atualizado em 2026-11-24 a partir das notas em
 `/data/Obsidian/MeuSegundoCerebro/CorreAI` e do codigo presente neste repositorio.
 
 ## Resumo
 
 O projeto esta na **Fase 1 - Backend**, com o nucleo inicial parcialmente
 concluido. A API ja registra e lista atividades, calcula o resumo estatistico e
-resolve um usuario anonimo. A migracao estrutural para arquitetura hexagonal foi
+resolve um usuario anonimo ou nomeado. A migracao estrutural para arquitetura hexagonal foi
 realizada e o build em Java 25 foi validado.
 
 O MVP descrito nas notas ainda nao esta completo: evolucao, metas, planejamento,
@@ -20,7 +20,7 @@ badges, mobile e validacao ponta a ponta permanecem pendentes.
 | 0 - Preparacao | Parcial | Produto e escopo documentados; nao ha repositorio mobile neste workspace. |
 | 1 - Backend | Em andamento | User, Activity, atividades, stats basicos e usuario anonimo implementados. |
 | 2 - Mobile | Nao iniciado aqui | Nenhum projeto Flutter neste workspace. |
-| 3 - Qualidade | Parcial | 40 testes passam em Java 25; faltam PostgreSQL real e fluxo ponta a ponta. |
+| 3 - Qualidade | Parcial | 89 testes passam em Java 25; faltam fluxo ponta a ponta. |
 | 4 - Pre-lancamento | Nao iniciado | Deploy, release mobile e materiais de loja pendentes. |
 | 5 - MVP pronto | Nao atingido | Depende das capacidades e validacoes abaixo. |
 
@@ -35,13 +35,15 @@ badges, mobile e validacao ponta a ponta permanecem pendentes.
 | Km semanal e mensal | Implementado |
 | Streak e maior distancia | Implementados em versao basica |
 | Usuario anonimo | Implementado com JWT assinado (`POST /auth/anonymous`) |
+| Usuario com e-mail/senha | Implementado (`POST /users` cadastra com nome, e-mail e senha BCrypt e retorna JWT; `POST /auth/login` autentica; migracoes `V3` e `V4`; `GET /users/me` retorna o usuario autenticado; migracao `V3__add_user_name.sql`) |
 | Erros padronizados (ProblemDetail), CORS e OpenAPI | Implementados |
-| Migracoes Flyway | Implementadas (`V1__init_schema.sql`) |
-| `GET /activities/{id}` | Pendente |
-| Editar/excluir atividade | Pendente |
+| Refresh token, recuperacao de senha e conversao de anonimo em conta | Implementados (`POST /auth/refresh`, `POST /auth/password-reset/request|confirm`, `POST /users/me/account`; tokens de uso unico em `one_time_tokens`, migracao `V5`); login com protecao contra enumeracao por tempo de resposta |
+| Migracoes Flyway | Implementadas (`V1` a `V5`) |
+| `GET /activities/{id}` | Implementado |
+| Excluir atividade (`DELETE /activities/{id}`) | Implementado |
+| Editar atividade | Pendente |
 | Metas (`/goals`): km, atividades e pace, semanal/mensal, varias ativas | Implementado |
 | `GET /stats/evolution` | Implementado (semanal, `weeks` de 1 a 52) |
-| Goals | Pendente |
 | PlannedActivity | Pendente |
 | Badge/UserBadge | Pendente |
 
@@ -49,7 +51,8 @@ badges, mobile e validacao ponta a ponta permanecem pendentes.
 
 - Estrutura atual: `domain/model`, `domain/port/in`, `domain/port/out` (ambos por
   feature), `application`, `config`, `adapter/in` e `adapter/out`.
-- Dominio sem dependencias de Spring, JPA ou Lombok; `User` e `Activity` sao records.
+- Dominio sem dependencias de Spring, JPA ou Lombok; `User` e `Activity` sao records
+  (`User` tem `name` e `email` opcionais: e-mail nulo indica usuario anonimo).
 - Services de aplicacao sem anotacoes Spring, registrados em `config/BeanConfig`.
 - `Clock` injetado e calculo de streak unificado em `StreakCalculator`.
 - Regras ArchUnit (`HexagonalArchitectureTest`) e teste de persistencia com Testcontainers/PostgreSQL.
@@ -65,6 +68,24 @@ badges, mobile e validacao ponta a ponta permanecem pendentes.
    `JWT_SECRET` forte e planejar rotacao/refresh de tokens.
 2. Os testes de persistencia usam H2 e nao cobrem diferencas do PostgreSQL.
 3. `avgPaceSeconds` e persistido, embora as notas definam pace como derivado.
+
+## Limitacoes conhecidas da autenticacao (ajustes futuros)
+
+1. **Sem envio de e-mail:** `PasswordResetNotifierPort` tem apenas um adapter de log; o
+   token so e logado se `app.security.password-reset.log-token=true`. Integrar um
+   provedor (SMTP/SES/etc.) antes de usar a recuperacao em producao.
+2. **Sem limpeza de tokens:** registros expirados/abandonados de `one_time_tokens` nao
+   sao removidos; criar job agendado.
+3. **JWT de acesso ainda com validade de 30 dias:** o refresh token traz pouco ganho
+   ate reduzir o TTL do JWT (ex.: 15-60 min).
+4. **App Flutter nao integrado:** o app ainda usa so `POST /auth/anonymous`; falta
+   login, cadastro, refresh automatico, recuperacao de senha e conversao de conta.
+5. **Senha limitada a 72 bytes (BCrypt):** a validacao usa numero de caracteres (8-72),
+   entao senhas multibyte podem ser truncadas silenciosamente.
+6. **Protecao de timing parcial:** o login e protegido, mas
+   `/auth/password-reset/request` ainda pode diferir em tempo entre e-mail conhecido e
+   desconhecido (ex.: envio sincrono); tornar assincrono.
+7. **Sem rate limiting:** login, refresh e reset nao limitam tentativas por IP/conta.
 
 ## Proximo marco recomendado
 

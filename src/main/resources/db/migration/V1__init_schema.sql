@@ -1,9 +1,11 @@
-CREATE TABLE IF NOT EXISTS users (
+CREATE SCHEMA IF NOT EXISTS ${flyway:defaultSchema};
+
+CREATE TABLE IF NOT EXISTS ${flyway:defaultSchema}.users (
     id         UUID PRIMARY KEY,
     created_at TIMESTAMP(6) WITH TIME ZONE
 );
 
-CREATE TABLE IF NOT EXISTS activities (
+CREATE TABLE IF NOT EXISTS ${flyway:defaultSchema}.activities (
     id                UUID PRIMARY KEY,
     user_id           UUID NOT NULL,
     type              VARCHAR(255),
@@ -17,4 +19,4 @@ CREATE TABLE IF NOT EXISTS activities (
     created_at        TIMESTAMP(6) WITH TIME ZONE
 );
 
-CREATE INDEX IF NOT EXISTS idx_activities_user_date ON activities (user_id, activity_date DESC);
+CREATE INDEX IF NOT EXISTS idx_activities_user_date ON ${flyway:defaultSchema}.activities (user_id, activity_date DESC);

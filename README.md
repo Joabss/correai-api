@@ -11,7 +11,7 @@ esta registrada em
 
 ## Visão Geral
 
-A aplicação permite que um usuário (identificado de forma anônima via header, sem necessidade de cadastro/login):
+A aplicação permite que um usuário (anônimo ou cadastrado com e-mail e senha):
 
 - Registre atividades de corrida (`RUN`) ou caminhada (`WALK`), informando distância, duração, tipo de treino, esforço percebido e notas.
 - Liste o histórico de atividades registradas.
@@ -22,7 +22,7 @@ A aplicação permite que um usuário (identificado de forma anônima via header
   - Sequência de dias consecutivos com atividade (`streak`)
   - Maior distância já percorrida (`longestDistance`)
 
-Não há cadastro/login: o cliente chama `POST /auth/anonymous`, que cria um usuário anônimo e devolve um **JWT** assinado (HS256). Esse token deve ser enviado em todas as chamadas seguintes no header `Authorization: Bearer <token>`.
+O cliente pode chamar `POST /auth/anonymous` (usuário anônimo), `POST /users` (cadastro com nome, e-mail e senha) ou `POST /auth/login` (usuário já cadastrado). Todos devolvem um **JWT** assinado (HS256). Esse token deve ser enviado em todas as chamadas seguintes no header `Authorization: Bearer <token>`.
 
 ## Stack Tecnológica
 
@@ -69,7 +69,7 @@ implementam essas portas. O dominio nao conhece Spring, HTTP ou JPA.
 
 ### Fluxo de identificação do usuário
 
-`POST /auth/anonymous` cria um `User` anônimo e devolve `{accessToken, tokenType, userId, expiresAt}`. O token é emitido e verificado pelo adapter `JwtTokenAdapter` (porta `TokenPort`, biblioteca Nimbus JOSE + JWT).
+`POST /auth/anonymous` cria um `User` anônimo e devolve `{accessToken, tokenType, userId, expiresAt}`. `POST /users` cadastra usuário com e-mail (único, normalizado em minúsculas) e senha (8–72 caracteres, armazenada como hash BCrypt) e `POST /auth/login` autentica por e-mail e senha (`401` para credenciais inválidas; `409` em `POST /users` se o e-mail já existir). O token é emitido e verificado pelo adapter `JwtTokenAdapter` (porta `TokenPort`, biblioteca Nimbus JOSE + JWT). Todas as respostas de sessão incluem também um `refreshToken` de uso único (30 dias, guardado só como hash SHA-256 na tabela `one_time_tokens`); `POST /auth/refresh` o rotaciona. A recuperação de senha usa token de 1 hora; ao confirmar, todos os refresh tokens do usuário são revogados. O login executa uma comparação BCrypt mesmo para e-mails inexistentes, reduzindo a enumeração de contas por tempo de resposta. O envio de e-mail do reset ainda não existe: em dev, defina `app.security.password-reset.log-token=true` para ver o token no log. Limitações conhecidas estão em `docs/STATUS_DO_PROJETO.md`.
 
 Um `HandlerInterceptor` (`UserContextInterceptor`) intercepta as requisições para `/activities/**` e `/stats/**`:
 
@@ -97,6 +97,13 @@ Os erros seguem o formato RFC 7807 (`ProblemDetail`, `application/problem+json`)
 | Método | Rota                | Descrição                                   |
 |--------|---------------------|----------------------------------------------|
 | POST   | `/auth/anonymous`   | Cria um usuário anônimo e retorna o JWT      |
+| POST   | `/auth/login`       | Autentica com `email` e `password` e retorna o JWT |
+| POST   | `/auth/refresh`     | Troca o `refreshToken` (uso único) por novo JWT e novo refresh token |
+| POST   | `/auth/password-reset/request` | Solicita recuperação de senha (`{"email"}`); sempre `202` |
+| POST   | `/auth/password-reset/confirm` | Define nova senha (`{"token","newPassword"}`); `204` |
+| POST   | `/users`            | Cadastra usuário (`{"name","email","password"}`) e retorna o JWT |
+| GET    | `/users/me`         | Retorna o usuário autenticado (`id`, `name`, `email`, `anonymous`, `createdAt`) |
+| POST   | `/users/me/account` | Converte o usuário anônimo/legado em conta (`{"name","email","password"}`); `409` se já tiver conta |
 | GET    | `/activities`       | Lista paginada das atividades (`?page=0&size=20`, máx. 100) |
 | POST   | `/activities`       | Cria uma nova atividade                      |
 | GET    | `/stats/summary`    | Retorna o resumo estatístico do usuário      |
@@ -180,7 +187,8 @@ Uma collection pronta com todos os endpoints está disponível em [`postman/corr
 4. As próximas requisições enviam `Authorization: Bearer {{accessToken}}` automaticamente.
 
 A collection contém as pastas:
-- **Auth**: criar usuário anônimo e obter o token.
+- **Auth**: criar usuário anônimo, login, refresh token e recuperação de senha (solicitar/confirmar).
+- **Users**: cadastrar usuário com nome, e-mail e senha (`POST /users`), consultar o usuário autenticado (`GET /users/me`) e converter em conta (`POST /users/me/account`).
 - **Activities**: listar (paginado), criar atividade (RUN/WALK) e um exemplo de payload inválido para testar as validações.
 - **Stats**: resumo estatístico e evolução semanal do usuário.
 - **Goals**: criar metas (km, atividades e pace), listar o progresso e desativar.
@@ -203,63 +211,58 @@ O projeto usa profiles do Spring. Com Jackson 3, a propriedade de datas é `spri
 - **dev** (padrão): conecta em `jdbc:postgresql://localhost:5432/correai`, com `ddl-auto: validate` (esquema gerido pelo Flyway) e SQL logado no console. Usa um segredo JWT de desenvolvimento; não use em produção.
 - **prod**: espera as variáveis de ambiente `DB_URL`, `DB_USER`, `DB_PASSWORD` e `JWT_SECRET`, com `ddl-auto: validate`.
 
+Todas as tabelas (inclusive `flyway_schema_history`) ficam no schema `correai`, criado pelo Flyway; nada é criado no `public`. O nome pode ser trocado com `DB_SCHEMA`. Em bancos existentes, mova as tabelas antes com `ALTER TABLE ... SET SCHEMA correai` ou recrie o banco de dev.
+
 Variável opcional `CORS_ALLOWED_ORIGINS` (lista separada por vírgulas; padrão `http://localhost:3000,http://localhost:5173`) define as origens permitidas pelo CORS.
 
 ### Migrações de banco (Flyway)
 
-O esquema é versionado em `src/main/resources/db/migration` (`V1__init_schema.sql`, `V2__create_goals.sql`). Bancos já existentes criados pelo `ddl-auto` são adotados automaticamente (`baseline-on-migrate`). Alterações de esquema devem virar novas migrações `V<n>__descricao.sql`. Os testes usam H2 com `create-drop` e o Flyway desabilitado.
+O esquema é versionado em `src/main/resources/db/migration` (`V1__init_schema.sql` … `V5__create_one_time_tokens.sql`). Bancos já existentes criados pelo `ddl-auto` são adotados automaticamente (`baseline-on-migrate`). Alterações de esquema devem virar novas migrações `V<n>__descricao.sql`. Os testes usam H2 com `create-drop` e o Flyway desabilitado.
 
 ### Rodando com Docker Compose (recomendado)
 
+Primeiro, inicie o PostgreSQL pelo projeto `infra-local` e aguarde até que esteja pronto.
+O banco `correai` deve existir e o usuário `dev` deve ter acesso a ele. A API usa
+a rede externa `infra-local_default`, criada pelo Compose do `infra-local`.
+
 ```bash
-# build + subir os containers (API + Postgres)
+# no diretório do infra-local
+docker compose up -d postgres
+
+# neste diretório, build + subir a API
 docker compose up --build
 
 # subir em background
 docker compose up -d
-
-# subir apenas o banco
-docker compose up postgres
 ```
 
-A API ficará disponível em `http://localhost:8080` e o Postgres do container é exposto na porta `5432` do host.
+A API ficará disponível em `http://localhost:8080`. O PostgreSQL do `infra-local` é exposto na porta `5432` do host.
 
 > **Nota (Linux):** dependendo da configuração do Docker no seu sistema, pode ser necessário usar `sudo docker compose ...`.
 
 **Outros comandos úteis:**
 ```bash
-# parar os containers
+# parar a API (não afeta o infra-local)
 docker compose down
 
-# parar e remover volumes (apaga os dados do banco)
-docker compose down -v
-
-# reiniciar todos os serviços
+# reiniciar a API
 docker compose restart
 
-# reiniciar apenas um serviço
-docker compose restart api
-
-# ver logs
+# ver logs da API
 docker compose logs
 docker compose logs -f
 docker compose logs -f api
-docker compose logs -f postgres
 
 # acessar o shell do container da API
 docker compose exec api sh
-
-# acessar o psql dentro do container do Postgres
-docker compose exec postgres psql -U correai
-
-# limpeza geral (containers, volumes e imagens não usadas)
-docker compose down -v
-docker system prune -a
 ```
+
+Para consultar logs ou acessar o PostgreSQL, execute `docker compose logs -f postgres`
+ou `docker compose exec postgres psql -U dev -d correai` no diretório do `infra-local`.
 
 ### Rodando localmente sem Docker
 
-1. Suba um Postgres 16 local (ou use o container apenas do banco: `docker compose up postgres`).
+1. Suba um Postgres 16 local (ou inicie o serviço `postgres` no diretório do `infra-local`).
 2. Ajuste, se necessário, as credenciais em `src/main/resources/application.yaml` (profile `dev`).
 3. Execute a aplicação:
    ```bash

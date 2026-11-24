@@ -33,6 +33,10 @@ import static org.junit.jupiter.api.Assertions.*;
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(properties = {
         "spring.flyway.enabled=true",
+        "spring.flyway.create-schemas=true",
+        "spring.flyway.schemas=correai",
+        "spring.flyway.default-schema=correai",
+        "spring.jpa.properties.hibernate.default_schema=correai",
         "spring.jpa.hibernate.ddl-auto=validate",
         "spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect"
 })
@@ -50,6 +54,21 @@ class PostgresPersistenceTest {
 
     @Autowired
     private GoalRepositoryPort goalRepository;
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    @Test
+    void createsTablesOnlyInDedicatedSchema() {
+        Integer inPublic = jdbc.queryForObject(
+                "select count(*) from information_schema.tables where table_schema = 'public'", Integer.class);
+        Integer inCorreai = jdbc.queryForObject(
+                "select count(*) from information_schema.tables where table_schema = 'correai' and table_name = 'users'",
+                Integer.class);
+
+        assertEquals(0, inPublic);
+        assertEquals(1, inCorreai);
+    }
 
     @Test
     void persistsAndQueriesActivitiesAgainstPostgres() {

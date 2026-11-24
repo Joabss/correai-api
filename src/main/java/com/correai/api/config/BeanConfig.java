@@ -5,7 +5,11 @@ import com.correai.api.application.common.StreakCalculator;
 import com.correai.api.application.goal.GoalApplicationService;
 import com.correai.api.application.stats.StatsApplicationService;
 import com.correai.api.application.auth.AuthApplicationService;
+import com.correai.api.application.user.UserApplicationService;
 import com.correai.api.domain.port.out.activity.ActivityRepositoryPort;
+import com.correai.api.domain.port.out.auth.OneTimeTokenPort;
+import com.correai.api.domain.port.out.auth.PasswordHasherPort;
+import com.correai.api.domain.port.out.auth.PasswordResetNotifierPort;
 import com.correai.api.domain.port.out.auth.TokenPort;
 import com.correai.api.domain.port.out.goal.GoalRepositoryPort;
 import com.correai.api.domain.port.out.user.UserRepositoryPort;
@@ -46,7 +50,16 @@ public class BeanConfig {
     }
 
     @Bean
-    public AuthApplicationService authApplicationService(UserRepositoryPort repository, TokenPort tokenPort) {
-        return new AuthApplicationService(repository, tokenPort);
+    public AuthApplicationService authApplicationService(
+            UserRepositoryPort repository, TokenPort tokenPort, PasswordHasherPort passwordHasher,
+            OneTimeTokenPort oneTimeTokens, PasswordResetNotifierPort resetNotifier) {
+        return new AuthApplicationService(repository, tokenPort, passwordHasher, oneTimeTokens, resetNotifier);
+    }
+
+    @Bean
+    public UserApplicationService userApplicationService(
+            UserRepositoryPort repository, TokenPort tokenPort, PasswordHasherPort passwordHasher,
+            OneTimeTokenPort oneTimeTokens) {
+        return new UserApplicationService(repository, tokenPort, passwordHasher, oneTimeTokens);
     }
 }
