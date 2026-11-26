@@ -103,6 +103,8 @@ Os erros seguem o formato RFC 7807 (`ProblemDetail`, `application/problem+json`)
 | POST   | `/auth/password-reset/confirm` | Define nova senha (`{"token","newPassword"}`); `204` |
 | POST   | `/users`            | Cadastra usuário (`{"name","email","password"}`) e retorna o JWT |
 | GET    | `/users/me`         | Retorna o usuário autenticado (`id`, `name`, `email`, `anonymous`, `createdAt`) |
+| PUT    | `/users/me`         | Altera nome e e-mail do usuário autenticado |
+| PUT/GET | `/users/me/photo`  | Inclui, substitui ou consulta a foto de perfil |
 | POST   | `/users/me/account` | Converte o usuário anônimo/legado em conta (`{"name","email","password"}`); `409` se já tiver conta |
 | GET    | `/activities`       | Lista paginada das atividades (`?page=0&size=20`, máx. 100) |
 | POST   | `/activities`       | Cria uma nova atividade                      |
@@ -110,6 +112,8 @@ Os erros seguem o formato RFC 7807 (`ProblemDetail`, `application/problem+json`)
 | GET    | `/stats/evolution`  | Evolução semanal (`?weeks=8`, de 1 a 52)     |
 | GET    | `/activities/{id}`  | Detalhe de uma atividade (inclui tipo de treino, esforço e notas) |
 | DELETE | `/activities/{id}`  | Remove uma atividade (404 se não for do usuário) |
+| PUT/GET | `/activities/{id}/photo` | Inclui, substitui ou consulta a foto da atividade |
+| PUT/GET | `/activities/{id}/route` | Inclui, substitui ou consulta o percurso em GPX |
 | POST   | `/goals`            | Cria uma meta (substitui a ativa do mesmo tipo e período) |
 | GET    | `/goals`            | Lista as metas ativas com o progresso no período atual |
 | DELETE | `/goals/{id}`       | Desativa uma meta                            |
@@ -117,6 +121,32 @@ Os erros seguem o formato RFC 7807 (`ProblemDetail`, `application/problem+json`)
 | GET    | `/swagger-ui.html`  | Documentação interativa (OpenAPI em `/v3/api-docs`) |
 
 As rotas `/activities` e `/stats` exigem o header `Authorization: Bearer <token>`.
+
+**Perfil e arquivos:** os endpoints acima exigem autenticação e restringem arquivos ao
+usuário proprietário. `PUT /users/me` recebe `name`, `email` e `currentPassword`.
+Para contas cadastradas, o e-mail é obrigatório e a senha atual é exigida somente
+quando ele muda; e-mail já usado retorna `409`, senha incorreta retorna `401`.
+Usuários anônimos podem alterar o nome com `email: null`; para definir e-mail e
+senha, usam `POST /users/me/account`.
+
+Os `PUT` de foto e percurso recebem `multipart/form-data` com um campo de arquivo
+chamado `file` e substituem o arquivo anterior. Fotos aceitam JPEG ou PNG até
+15 MiB, com até 40 milhões de pixels e dimensões máximas de 10.000 pixels por
+lado. O aplicativo deve converter fotos HEIC para JPEG ou PNG. A imagem original
+é armazenada, inclusive eventuais metadados; o aplicativo deve removê-los antes
+do envio se não forem desejados.
+
+O percurso é um arquivo GPX 1.0 ou 1.1 de até 5 MiB, com 2 a 100.000 pontos
+de trajeto (`trkpt`) ou rota (`rtept`) e coordenadas válidas. A API valida a
+estrutura necessária para os pontos, não o esquema GPX completo, e devolve o
+arquivo original em `GET /activities/{id}/route`; o aplicativo é responsável
+por interpretá-lo e desenhá-lo no mapa. Os arquivos são armazenados no
+PostgreSQL e retornados sem cache; ausentes ou pertencentes a outra pessoa
+retornam `404`. Ao excluir uma atividade, seus arquivos são excluídos.
+
+```json
+{ "name": "Ana", "email": "ana@example.com", "currentPassword": "senha-atual" }
+```
 
 **Paginação de `GET /activities`:**
 
@@ -190,6 +220,7 @@ A collection contém as pastas:
 - **Auth**: criar usuário anônimo, login, refresh token e recuperação de senha (solicitar/confirmar).
 - **Users**: cadastrar usuário com nome, e-mail e senha (`POST /users`), consultar o usuário autenticado (`GET /users/me`) e converter em conta (`POST /users/me/account`).
 - **Activities**: listar (paginado), criar atividade (RUN/WALK) e um exemplo de payload inválido para testar as validações.
+- **Perfil e arquivos**: alterar perfil e enviar ou consultar fotos e percursos GPX.
 - **Stats**: resumo estatístico e evolução semanal do usuário.
 - **Goals**: criar metas (km, atividades e pace), listar o progresso e desativar.
 - **Actuator**: health check da aplicação.
@@ -217,7 +248,7 @@ Variável opcional `CORS_ALLOWED_ORIGINS` (lista separada por vírgulas; padrão
 
 ### Migrações de banco (Flyway)
 
-O esquema é versionado em `src/main/resources/db/migration` (`V1__init_schema.sql` … `V5__create_one_time_tokens.sql`). Bancos já existentes criados pelo `ddl-auto` são adotados automaticamente (`baseline-on-migrate`). Alterações de esquema devem virar novas migrações `V<n>__descricao.sql`. Os testes usam H2 com `create-drop` e o Flyway desabilitado.
+O esquema é versionado em `src/main/resources/db/migration` (`V1__init_schema.sql` … `V6__create_media_files.sql`). Bancos já existentes criados pelo `ddl-auto` são adotados automaticamente (`baseline-on-migrate`). Alterações de esquema devem virar novas migrações `V<n>__descricao.sql`. Os testes usam H2 com `create-drop` e o Flyway desabilitado.
 
 ### Rodando com Docker Compose (recomendado)
 

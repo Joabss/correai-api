@@ -4,6 +4,7 @@ import com.correai.api.domain.model.user.EmailAlreadyRegisteredException;
 import com.correai.api.domain.model.user.User;
 import com.correai.api.domain.model.user.UserCredentials;
 import com.correai.api.domain.model.user.UserNotFoundException;
+import com.correai.api.domain.model.user.ConcurrentProfileUpdateException;
 import com.correai.api.domain.port.out.user.UserRepositoryPort;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
@@ -53,9 +54,27 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
 
     @Override
     public void updatePasswordHash(UUID userId, String passwordHash) {
-        UserEntity current = jpaRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId));
-        jpaRepository.save(new UserEntity(
-                userId, current.getName(), current.getEmail(), passwordHash, current.getCreatedAt()));
+        if (jpaRepository.updatePasswordHash(userId, passwordHash) == 0) {
+            throw new UserNotFoundException(userId);
+        }
+    }
+
+    @Override
+    public User updateProfile(UUID userId, String name, String email, String expectedEmail) {
+        try {
+            if (jpaRepository.updateProfile(userId, name, email, expectedEmail) == 0) {
+                if (!jpaRepository.existsById(userId)) {
+                    throw new UserNotFoundException(userId);
+                }
+                throw new ConcurrentProfileUpdateException();
+            }
+        } catch (DataIntegrityViolationException exception) {
+            if (email != null && jpaRepository.existsByEmail(email)) {
+                throw new EmailAlreadyRegisteredException();
+            }
+            throw exception;
+        }
+        return mapper.toDomain(jpaRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(userId)));
     }
 
     @Override
@@ -80,4 +99,3 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
         return jpaRepository.existsByEmail(email);
     }
 }
-

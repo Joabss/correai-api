@@ -590,6 +590,66 @@
       "description": "Endpoints relacionados ao registro e consulta de atividades (corrida/caminhada)."
     },
     {
+      "name": "Perfil e arquivos",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          { "key": "token", "value": "{{accessToken}}", "type": "string" }
+        ]
+      },
+      "item": [
+        {
+          "name": "Alterar perfil",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Ana\",\n  \"email\": \"ana@example.com\",\n  \"currentPassword\": \"senha-atual\"\n}"
+            },
+            "url": "{{baseUrl}}/users/me"
+          }
+        },
+        {
+          "name": "Enviar foto de perfil",
+          "request": {
+            "method": "PUT",
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "" }] },
+            "url": "{{baseUrl}}/users/me/photo"
+          }
+        },
+        {
+          "name": "Consultar foto de perfil",
+          "request": { "method": "GET", "url": "{{baseUrl}}/users/me/photo" }
+        },
+        {
+          "name": "Enviar foto de atividade",
+          "request": {
+            "method": "PUT",
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "" }] },
+            "url": "{{baseUrl}}/activities/{{activityId}}/photo"
+          }
+        },
+        {
+          "name": "Consultar foto de atividade",
+          "request": { "method": "GET", "url": "{{baseUrl}}/activities/{{activityId}}/photo" }
+        },
+        {
+          "name": "Enviar percurso GPX",
+          "request": {
+            "method": "PUT",
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "" }] },
+            "url": "{{baseUrl}}/activities/{{activityId}}/route"
+          }
+        },
+        {
+          "name": "Consultar percurso GPX",
+          "request": { "method": "GET", "url": "{{baseUrl}}/activities/{{activityId}}/route" }
+        }
+      ],
+      "description": "Requisições autenticadas. Selecione um arquivo nos envios; os arquivos substituem os anteriores."
+    },
+    {
       "name": "Stats",
       "item": [
         {

@@ -27,6 +27,8 @@ public interface UserRepositoryPort {
      */
     User registerCredentials(UUID userId, String name, String email, String passwordHash);
 
+    User updateProfile(UUID userId, String name, String email, String expectedEmail);
+
     void updatePasswordHash(UUID userId, String passwordHash);
 
     boolean existsById(UUID userId);
@@ -37,4 +39,3 @@ public interface UserRepositoryPort {
 
     Optional<UserCredentials> findCredentialsByEmail(String email);
 }
-

@@ -5,12 +5,14 @@ import com.correai.api.adapter.in.web.config.UserContextInterceptor;
 import com.correai.api.domain.port.in.user.ConvertToAccountUseCase;
 import com.correai.api.domain.port.in.user.CreateUserUseCase;
 import com.correai.api.domain.port.in.user.GetUserUseCase;
+import com.correai.api.domain.port.in.user.UpdateUserUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,13 +27,15 @@ public class UserController {
     private final CreateUserUseCase createUserUseCase;
     private final GetUserUseCase getUserUseCase;
     private final ConvertToAccountUseCase convertToAccountUseCase;
+    private final UpdateUserUseCase updateUserUseCase;
 
     public UserController(
             CreateUserUseCase createUserUseCase, GetUserUseCase getUserUseCase,
-            ConvertToAccountUseCase convertToAccountUseCase) {
+            ConvertToAccountUseCase convertToAccountUseCase, UpdateUserUseCase updateUserUseCase) {
         this.createUserUseCase = createUserUseCase;
         this.getUserUseCase = getUserUseCase;
         this.convertToAccountUseCase = convertToAccountUseCase;
+        this.updateUserUseCase = updateUserUseCase;
     }
 
     @Operation(summary = "Turns the authenticated anonymous (or name-only) user into a registered account")
@@ -55,5 +59,12 @@ public class UserController {
     @GetMapping("/me")
     public UserResponse me(@RequestAttribute(UserContextInterceptor.USER_REQUEST_ATTR) UUID userId) {
         return UserResponse.from(getUserUseCase.getById(userId));
+    }
+
+    @PutMapping("/me")
+    public UserResponse update(@RequestAttribute(UserContextInterceptor.USER_REQUEST_ATTR) UUID userId,
+                               @Valid @RequestBody UpdateUserRequest request) {
+        return UserResponse.from(updateUserUseCase.update(
+                userId, request.name(), request.email(), request.currentPassword()));
     }
 }

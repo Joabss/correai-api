@@ -10,9 +10,13 @@ import com.correai.api.domain.model.goal.GoalType;
 import com.correai.api.domain.model.pagination.PageQuery;
 import com.correai.api.domain.model.pagination.PageResult;
 import com.correai.api.domain.model.user.User;
+import com.correai.api.domain.model.user.ConcurrentProfileUpdateException;
 import com.correai.api.domain.port.out.activity.ActivityRepositoryPort;
 import com.correai.api.domain.port.out.goal.GoalRepositoryPort;
 import com.correai.api.domain.port.out.user.UserRepositoryPort;
+import com.correai.api.domain.port.out.media.MediaRepositoryPort;
+import com.correai.api.domain.model.media.MediaContent;
+import com.correai.api.domain.model.media.MediaKind;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -54,6 +58,37 @@ class PostgresPersistenceTest {
 
     @Autowired
     private GoalRepositoryPort goalRepository;
+
+    @Autowired
+    private MediaRepositoryPort mediaRepository;
+
+    @Test
+    void storesMediaAndDeletesActivityFilesWithActivity() {
+        UUID userId = userRepository.save(User.anonymous()).id();
+        Activity activity = activityRepository.save(Activity.create(userId, ActivityType.RUN, 1, 300,
+                null, null, null, LocalDate.now()));
+        byte[] bytes = new byte[] {1, 2, 3};
+        mediaRepository.save(userId, activity.id(), MediaKind.ACTIVITY_ROUTE,
+                new MediaContent("application/gpx+xml", bytes));
+        assertArrayEquals(bytes, mediaRepository.find(userId, activity.id(), MediaKind.ACTIVITY_ROUTE)
+                .orElseThrow().bytes());
+        activityRepository.delete(activity);
+        assertTrue(mediaRepository.find(userId, activity.id(), MediaKind.ACTIVITY_ROUTE).isEmpty());
+    }
+
+    @Test
+    void updatesAnonymousAndRegisteredProfilesWithoutOverwritingCredentials() {
+        UUID userId = userRepository.save(User.anonymous()).id();
+        assertEquals("Ana", userRepository.updateProfile(userId, "Ana", null, null).name());
+        userRepository.registerCredentials(userId, "Ana", "profile@example.com", "hash");
+        assertThrows(ConcurrentProfileUpdateException.class,
+                () -> userRepository.updateProfile(userId, "Stale", null, null));
+        userRepository.updateProfile(userId, "New name", "new-profile@example.com", "profile@example.com");
+        userRepository.updatePasswordHash(userId, "new-hash");
+        assertEquals("New name", userRepository.findById(userId).orElseThrow().name());
+        assertEquals("new-hash", userRepository.findCredentialsByEmail("new-profile@example.com")
+                .orElseThrow().passwordHash());
+    }
 
     @Autowired
     private org.springframework.jdbc.core.JdbcTemplate jdbc;

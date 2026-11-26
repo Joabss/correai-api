@@ -36,9 +36,10 @@ badges, mobile e validacao ponta a ponta permanecem pendentes.
 | Streak e maior distancia | Implementados em versao basica |
 | Usuario anonimo | Implementado com JWT assinado (`POST /auth/anonymous`) |
 | Usuario com e-mail/senha | Implementado (`POST /users` cadastra com nome, e-mail e senha BCrypt e retorna JWT; `POST /auth/login` autentica; migracoes `V3` e `V4`; `GET /users/me` retorna o usuario autenticado; migracao `V3__add_user_name.sql`) |
+| Edicao de perfil, fotos e percurso | Implementados (`PUT /users/me`; `PUT/GET /users/me/photo`, `PUT/GET /activities/{id}/photo` e `/activities/{id}/route`; arquivos privados em PostgreSQL, migracao `V6`; GPX 1.0/1.1) |
 | Erros padronizados (ProblemDetail), CORS e OpenAPI | Implementados |
 | Refresh token, recuperacao de senha e conversao de anonimo em conta | Implementados (`POST /auth/refresh`, `POST /auth/password-reset/request|confirm`, `POST /users/me/account`; tokens de uso unico em `one_time_tokens`, migracao `V5`); login com protecao contra enumeracao por tempo de resposta |
-| Migracoes Flyway | Implementadas (`V1` a `V5`) |
+| Migracoes Flyway | Implementadas (`V1` a `V6`) |
 | `GET /activities/{id}` | Implementado |
 | Excluir atividade (`DELETE /activities/{id}`) | Implementado |
 | Editar atividade | Pendente |

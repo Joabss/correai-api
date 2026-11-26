@@ -6,6 +6,8 @@ import com.correai.api.domain.model.user.AccountAlreadyRegisteredException;
 import com.correai.api.domain.model.user.EmailAlreadyRegisteredException;
 import com.correai.api.domain.model.user.User;
 import com.correai.api.domain.model.user.UserNotFoundException;
+import com.correai.api.domain.model.user.UserCredentials;
+import com.correai.api.domain.model.auth.InvalidCredentialsException;
 import com.correai.api.domain.port.out.auth.OneTimeTokenPort;
 import com.correai.api.domain.port.out.auth.PasswordHasherPort;
 import com.correai.api.domain.port.out.auth.TokenPort;
@@ -41,6 +43,68 @@ class UserApplicationServiceTest {
 
     @InjectMocks
     private UserApplicationService service;
+
+    @Test
+    void update_shouldNormalizeEmailAndVerifyCurrentPassword() {
+        UUID userId = UUID.randomUUID();
+        User current = User.reconstruct(userId, "Ana", "ana@example.com", Instant.EPOCH);
+        User updated = User.reconstruct(userId, "New name", "new@example.com", Instant.EPOCH);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(current));
+        when(userRepository.findCredentialsByEmail(current.email()))
+                .thenReturn(Optional.of(new UserCredentials(current, "hash")));
+        when(passwordHasher.matches("password", "hash")).thenReturn(true);
+        when(userRepository.updateProfile(userId, "New name", "new@example.com", "ana@example.com"))
+                .thenReturn(updated);
+
+        assertEquals(updated, service.update(userId, " New name ", "New@Example.com", "password"));
+    }
+
+    @Test
+    void update_withWrongPassword_shouldNotChangeEmail() {
+        UUID userId = UUID.randomUUID();
+        User current = User.reconstruct(userId, "Ana", "ana@example.com", Instant.EPOCH);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(current));
+        when(userRepository.findCredentialsByEmail(current.email()))
+                .thenReturn(Optional.of(new UserCredentials(current, "hash")));
+
+        assertThrows(InvalidCredentialsException.class,
+                () -> service.update(userId, "Ana", "new@example.com", "wrong"));
+        verify(userRepository, never()).updateProfile(any(), any(), any(), any());
+    }
+
+    @Test
+    void update_withSameEmail_shouldNotRequirePassword() {
+        UUID userId = UUID.randomUUID();
+        User current = User.reconstruct(userId, "Ana", "ana@example.com", Instant.EPOCH);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(current));
+        service.update(userId, "Ana Maria", "ANA@example.com", null);
+        verify(userRepository).updateProfile(userId, "Ana Maria", "ana@example.com", "ana@example.com");
+        verifyNoInteractions(passwordHasher);
+    }
+
+    @Test
+    void update_anonymousUserCannotSetEmailWithoutConversion() {
+        UUID userId = UUID.randomUUID();
+        when(userRepository.findById(userId))
+                .thenReturn(Optional.of(User.reconstruct(userId, null, null, Instant.EPOCH)));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.update(userId, "Ana", "ana@example.com", null));
+        verify(userRepository, never()).updateProfile(any(), any(), any(), any());
+    }
+
+    @Test
+    void update_withTakenEmail_shouldNotUpdate() {
+        UUID userId = UUID.randomUUID();
+        User current = User.reconstruct(userId, "Ana", "ana@example.com", Instant.EPOCH);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(current));
+        when(userRepository.findCredentialsByEmail(current.email()))
+                .thenReturn(Optional.of(new UserCredentials(current, "hash")));
+        when(passwordHasher.matches("password", "hash")).thenReturn(true);
+        when(userRepository.existsByEmail("other@example.com")).thenReturn(true);
+        assertThrows(EmailAlreadyRegisteredException.class,
+                () -> service.update(userId, "Ana", "other@example.com", "password"));
+        verify(userRepository, never()).updateProfile(any(), any(), any(), any());
+    }
 
     @Test
     void convertToAccount_shouldRegisterCredentialsForAnonymousUser() {
