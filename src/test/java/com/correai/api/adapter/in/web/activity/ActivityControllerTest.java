@@ -204,7 +204,7 @@ class ActivityControllerTest {
 
     @Test
     void create_shouldReturnCreatedActivity() throws Exception {
-        ActivityCreationResult result = new ActivityCreationResult(activity, 10.0, 1, List.of());
+        ActivityCreationResult result = new ActivityCreationResult(activity, 10.0, 1, List.of(), List.of());
         when(createActivityUseCase.create(any())).thenReturn(result);
         OffsetDateTime startedAt = OffsetDateTime.of(2026, 11, 27, 22, 0, 0, 0, ZoneOffset.ofHours(-3));
         request.setStartedAt(startedAt.toString());
@@ -241,7 +241,7 @@ class ActivityControllerTest {
     @Test
     void create_withLegacyStartedAtWithoutOffset_shouldAssumeSaoPaulo() throws Exception {
         when(createActivityUseCase.create(any()))
-                .thenReturn(new ActivityCreationResult(activity, 10.0, 1, List.of()));
+                .thenReturn(new ActivityCreationResult(activity, 10.0, 1, List.of(), List.of()));
         request.setStartedAt("2026-11-27T22:00:00");
 
         mockMvc.perform(post("/activities")

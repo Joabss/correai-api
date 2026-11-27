@@ -1,6 +1,7 @@
 package com.correai.api.config;
 
 import com.correai.api.application.activity.ActivityApplicationService;
+import com.correai.api.application.achievement.AchievementApplicationService;
 import com.correai.api.application.common.StreakCalculator;
 import com.correai.api.application.goal.GoalApplicationService;
 import com.correai.api.application.stats.StatsApplicationService;
@@ -8,6 +9,7 @@ import com.correai.api.application.stats.PersonalRecordApplicationService;
 import com.correai.api.application.auth.AuthApplicationService;
 import com.correai.api.application.user.UserApplicationService;
 import com.correai.api.application.media.MediaApplicationService;
+import com.correai.api.domain.port.out.achievement.AchievementRepositoryPort;
 import com.correai.api.domain.port.out.activity.ActivityRepositoryPort;
 import com.correai.api.domain.port.out.auth.OneTimeTokenPort;
 import com.correai.api.domain.port.out.auth.PasswordHasherPort;
@@ -17,6 +19,9 @@ import com.correai.api.domain.port.out.goal.GoalRepositoryPort;
 import com.correai.api.domain.port.out.user.UserRepositoryPort;
 import com.correai.api.domain.port.out.media.MediaRepositoryPort;
 import com.correai.api.domain.port.in.goal.EvaluateGoalsUseCase;
+import com.correai.api.domain.port.in.achievement.AchievementsUseCase;
+import com.correai.api.domain.port.in.stats.GetStatsSummaryUseCase;
+import com.correai.api.domain.port.in.stats.PersonalRecordsUseCase;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -39,8 +44,8 @@ public class BeanConfig {
     @Bean
     public ActivityApplicationService activityApplicationService(
             ActivityRepositoryPort repository, StreakCalculator streakCalculator, Clock clock,
-            EvaluateGoalsUseCase goals) {
-        return new ActivityApplicationService(repository, streakCalculator, clock, goals);
+            EvaluateGoalsUseCase goals, AchievementsUseCase achievements) {
+        return new ActivityApplicationService(repository, streakCalculator, clock, goals, achievements);
     }
 
     @Bean
@@ -52,6 +57,15 @@ public class BeanConfig {
     @Bean
     public PersonalRecordApplicationService personalRecordApplicationService(MediaRepositoryPort media) {
         return new PersonalRecordApplicationService(media);
+    }
+
+    @Bean
+    public AchievementApplicationService achievementApplicationService(
+            ActivityRepositoryPort activityRepository, GetStatsSummaryUseCase stats,
+            PersonalRecordsUseCase personalRecords, GoalRepositoryPort goalRepository,
+            MediaRepositoryPort media, AchievementRepositoryPort achievementRepository, Clock clock) {
+        return new AchievementApplicationService(activityRepository, stats, personalRecords, goalRepository,
+                media, achievementRepository, clock);
     }
 
     @Bean

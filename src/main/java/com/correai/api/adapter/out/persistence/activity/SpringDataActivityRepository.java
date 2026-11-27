@@ -23,5 +23,7 @@ public interface SpringDataActivityRepository extends JpaRepository<ActivityEnti
     Optional<ActivityEntity> findByIdAndUserId(UUID id, UUID userId);
 
     Page<ActivityEntity> findByUserId(UUID userId, Pageable pageable);
+
+    List<ActivityEntity> findByUserId(UUID userId);
 }
 

@@ -13,6 +13,7 @@ import com.correai.api.domain.port.in.activity.UpdateActivityCommand;
 import com.correai.api.domain.model.activity.ActivityNotFoundException;
 import com.correai.api.domain.port.out.activity.ActivityRepositoryPort;
 import com.correai.api.domain.port.in.goal.EvaluateGoalsUseCase;
+import com.correai.api.domain.port.in.achievement.AchievementsUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,6 +42,8 @@ class ActivityApplicationServiceTest {
     private ActivityRepositoryPort repository;
     @Mock
     private EvaluateGoalsUseCase goals;
+    @Mock
+    private AchievementsUseCase achievements;
 
     private ActivityApplicationService service;
 
@@ -52,7 +55,8 @@ class ActivityApplicationServiceTest {
     @BeforeEach
     void setUp() {
         clock = Clock.fixed(Instant.parse("2026-11-28T01:00:00Z"), ZoneId.of("America/Sao_Paulo"));
-        service = new ActivityApplicationService(repository, new StreakCalculator(repository, clock), clock, goals);
+        service = new ActivityApplicationService(repository, new StreakCalculator(repository, clock), clock, goals,
+                achievements);
         userId = UUID.randomUUID();
         command = new CreateActivityCommand(userId, ActivityType.RUN, 10.0, 3600, TrainingType.EASY,
                 PerceivedEffort.OK, "Test run", null);

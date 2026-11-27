@@ -15,5 +15,6 @@ public class ActivityResponse {
     private Double totalKmMonth;
     private Integer streak;
     private List<String> newBadges;
+    private List<String> newAchievements;
 }
 

@@ -14,8 +14,8 @@ public final class BestEffortCalculator {
         double[] distance = new double[points.size()];
         double[] time = new double[points.size()];
         for (int i = 1; i < points.size(); i++) {
-            if (!points.get(i).time().isAfter(points.get(i - 1).time())) {
-                throw new IllegalArgumentException("Route times must be strictly increasing");
+            if (points.get(i).time().isBefore(points.get(i - 1).time())) {
+                throw new IllegalArgumentException("Route times must not decrease");
             }
             distance[i] = distance[i - 1] + distanceMeters(points.get(i - 1), points.get(i));
             Duration elapsed = Duration.between(points.getFirst().time(), points.get(i).time());

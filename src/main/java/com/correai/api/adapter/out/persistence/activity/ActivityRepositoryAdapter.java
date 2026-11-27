@@ -71,5 +71,10 @@ public class ActivityRepositoryAdapter implements ActivityRepositoryPort {
     public Double findLongestDistance(UUID userId) {
         return jpaRepository.findLongestDistance(userId);
     }
+
+    @Override
+    public List<Activity> findAllByUserId(UUID userId) {
+        return jpaRepository.findByUserId(userId).stream().map(mapper::toDomain).toList();
+    }
 }
 

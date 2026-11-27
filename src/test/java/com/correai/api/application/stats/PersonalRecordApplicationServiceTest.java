@@ -45,6 +45,25 @@ class PersonalRecordApplicationServiceTest {
     }
 
     @Test
+    void ignoresCorruptedOrLegacyRouteWithNonIncreasingTimesWithoutFailingOtherActivities() {
+        MediaRepositoryPort media = mock(MediaRepositoryPort.class);
+        UUID user = UUID.randomUUID();
+        UUID valid = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID corrupted = UUID.randomUUID();
+        when(media.listRouteActivityIds(user)).thenReturn(List.of(corrupted, valid));
+        when(media.find(user, valid, MediaKind.ACTIVITY_ROUTE)).thenReturn(Optional.of(route(1000, true)));
+        String xml = "<gpx xmlns=\"http://www.topografix.com/GPX/1/1\"><trk><trkseg>"
+                + "<trkpt lat=\"0\" lon=\"0\"><time>2026-11-27T12:00:05Z</time></trkpt>"
+                + "<trkpt lat=\"0\" lon=\"0.5\"><time>2026-11-27T12:00:00Z</time></trkpt></trkseg></trk></gpx>";
+        when(media.find(user, corrupted, MediaKind.ACTIVITY_ROUTE)).thenReturn(Optional.of(
+                new MediaContent("application/gpx+xml", xml.getBytes(StandardCharsets.UTF_8))));
+        var records = new PersonalRecordApplicationService(media).records(user);
+        for (var record : records) {
+            assertEquals(List.of(valid), record.efforts().stream().map(e -> e.activityId()).toList());
+        }
+    }
+
+    @Test
     void doesNotJoinShortSegmentsAcrossPauses() {
         MediaRepositoryPort media = mock(MediaRepositoryPort.class);
         UUID user = UUID.randomUUID();

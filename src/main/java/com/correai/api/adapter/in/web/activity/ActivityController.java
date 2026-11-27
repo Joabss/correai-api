@@ -122,6 +122,7 @@ public class ActivityController {
         response.setTotalKmMonth(result.totalKmMonth());
         response.setStreak(result.streak());
         response.setNewBadges(result.newBadges());
+        response.setNewAchievements(result.newAchievements());
         return response;
     }
 }

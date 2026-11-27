@@ -24,7 +24,8 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(interceptor)
-                .addPathPatterns("/activities/**", "/stats/**", "/goals/**", "/users/me", "/users/me/**")
+                .addPathPatterns("/activities/**", "/stats/**", "/goals/**", "/achievements/**",
+                        "/users/me", "/users/me/**")
                 .excludePathPatterns(
                         "/actuator/**",
                         "/error"

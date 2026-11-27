@@ -27,5 +27,8 @@ public interface ActivityRepositoryPort {
     boolean existsByUserIdAndActivityDate(UUID userId, LocalDate date);
 
     Double findLongestDistance(UUID userId);
+
+    /** All of the user's activities, unpaginated. Used for criteria that scan the full history. */
+    List<Activity> findAllByUserId(UUID userId);
 }
 

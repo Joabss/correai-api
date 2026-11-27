@@ -80,8 +80,8 @@ public final class GpxReader {
                         if (pointName != null && reader.getName().equals(pointName) && path.size() <= 4) {
                             if (segment == null) throw new IllegalArgumentException("Invalid GPX segment");
                             if (time != null && !segment.isEmpty() && segment.getLast().time() != null
-                                    && !time.isAfter(segment.getLast().time())) {
-                                throw new IllegalArgumentException("Route times must be strictly increasing");
+                                    && time.isBefore(segment.getLast().time())) {
+                                throw new IllegalArgumentException("Route times must not decrease");
                             }
                             segment.add(new TimedRoutePoint(latitude, longitude, time));
                             pointName = null;

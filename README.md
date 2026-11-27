@@ -71,7 +71,8 @@ implementam essas portas. O dominio nao conhece Spring, HTTP ou JPA.
 
 `POST /auth/anonymous` cria um `User` anônimo e devolve `{accessToken, tokenType, userId, expiresAt}`. `POST /users` cadastra usuário com e-mail (único, normalizado em minúsculas) e senha (8–72 caracteres, armazenada como hash BCrypt) e `POST /auth/login` autentica por e-mail e senha (`401` para credenciais inválidas; `409` em `POST /users` se o e-mail já existir). O token é emitido e verificado pelo adapter `JwtTokenAdapter` (porta `TokenPort`, biblioteca Nimbus JOSE + JWT). Todas as respostas de sessão incluem também um `refreshToken` de uso único (30 dias, guardado só como hash SHA-256 na tabela `one_time_tokens`); `POST /auth/refresh` o rotaciona. A recuperação de senha usa token de 1 hora; ao confirmar, todos os refresh tokens do usuário são revogados. O login executa uma comparação BCrypt mesmo para e-mails inexistentes, reduzindo a enumeração de contas por tempo de resposta. O envio de e-mail do reset ainda não existe: em dev, defina `app.security.password-reset.log-token=true` para ver o token no log. Limitações conhecidas estão em `docs/STATUS_DO_PROJETO.md`.
 
-Um `HandlerInterceptor` (`UserContextInterceptor`) intercepta as requisições para `/activities/**` e `/stats/**`:
+Um `HandlerInterceptor` (`UserContextInterceptor`) intercepta as requisições para
+`/activities/**`, `/stats/**`, `/goals/**`, `/achievements/**` e `/users/me/**`:
 
 1. Exige o header `Authorization: Bearer <token>`.
 2. Valida assinatura e expiração do token e confirma que o usuário ainda existe.
@@ -124,6 +125,7 @@ Os erros seguem o formato RFC 7807 (`ProblemDetail`, `application/problem+json`)
 | GET    | `/goals/badges`     | Lista conquistas permanentes do usuário |
 | GET    | `/goals/{id}/badge` | Imagem PNG privada da medalha conquistada |
 | DELETE | `/goals/{id}`       | Desativa desafio sem medalha; com medalha retorna `409` |
+| GET    | `/achievements/me`  | Catálogo completo de badges de conquistas, com estado desbloqueado/bloqueado |
 | GET    | `/actuator/health`  | Health check da aplicação                    |
 | GET    | `/swagger-ui.html`  | Documentação interativa (OpenAPI em `/v3/api-docs`) |
 
@@ -188,8 +190,9 @@ Grupos sem resultado têm `efforts: []`. Cada atividade fornece somente seu melh
 por distância, evitando medalhas ocupadas por trechos sobrepostos da mesma gravação.
 Empates no tempo exato usam o UUID da atividade para ordenação estável.
 
-Os pontos GPX precisam ter `<time>` ISO 8601 com offset ou `Z`, estritamente crescente
-dentro de cada segmento. Os horários são interpretados como instantes, independentemente
+Os pontos GPX precisam ter `<time>` ISO 8601 com offset ou `Z`, não decrescente
+dentro de cada segmento (instantes iguais entre pontos consecutivos são aceitos, um
+artefato comum de exportações GPS reais). Os horários são interpretados como instantes, independentemente
 do fuso do servidor. A distância usa Haversine (raio 6.371.000 m), com interpolação linear
 do tempo entre pontos nas duas extremidades do trecho. Não há tolerância de distância
 nem extrapolação; pausas (`trkseg` separados) nunca são atravessadas. Tempo parado dentro
@@ -198,6 +201,32 @@ manuais sem GPX também não participam. Editar distância/duração não altera
 excluir a atividade ou substituir seu GPX recalcula o ranking, sem afetar badges.
 O cálculo lê um percurso por vez e mantém somente três resultados por distância;
 o custo da consulta cresce com os percursos/pontos do usuário, sem cache persistente.
+Percursos corrompidos ou com horários decrescentes são ignorados com aviso em log,
+sem interromper o cálculo das demais atividades.
+
+### Conquistas (badges)
+
+Catálogo independente dos desafios, com 19 badges fixos (`BadgeCode`), desbloqueados
+permanentemente conforme o histórico de atividades do usuário; uma vez concedida, uma
+badge nunca é revogada (`user_badges`, migração `V10`). `GET /achievements/me` retorna
+todas as 19 entradas (`code`, `name`, `description`, `unlocked`, `unlockedAt`), incluindo
+as ainda bloqueadas. A avaliação roda a cada criação/edição/exclusão de atividade.
+Quando dá para atribuir a badge a uma atividade específica, `unlockedAt` usa a data dessa
+atividade (`activityDate`/`startedAt`), não o momento da avaliação — um registro manual
+retroativo não aparece com a data de hoje. Badges agregadas entre várias atividades
+(sequências de dias e Centurião) ainda usam o momento da avaliação, por falta de um
+marco de data único atribuível.
+
+15 badges têm critério computável com os dados atuais: primeiros passos e distâncias
+oficiais (5 km/10 km/21 km/42 km), sequências de 7 e 30 dias, km do mês (Centurião),
+horário da atividade (Madrugador 4h–7h, Coruja Noturna 22h–2h, Sol a Pino 11h–15h),
+recorde pessoal batido, ritmo médio alvo atingido (Relâmpago, via meta `AVG_PACE`),
+quatro semanas consecutivas de meta de atividades cumprida (Coração Forte) e exploração
+de uma rota GPX com ponto inicial a mais de 2 km de qualquer início já registrado
+(Explorador, heurística por clusterização, não estritamente cronológica).
+4 badges ficam bloqueadas sem critério implementado por falta de fonte de dados
+(Rei da Montanha/elevação, Faça Chuva/clima, Em Grupo/atividades coletivas, Campeão):
+elas aparecem na vitrine como "Em breve" e nunca são concedidas nesta versão.
 
 ```json
 { "name": "Ana", "email": "ana@example.com", "currentPassword": "senha-atual" }
@@ -289,8 +318,9 @@ A collection contém as pastas:
 - **Users**: cadastrar usuário com nome, e-mail e senha (`POST /users`), consultar o usuário autenticado (`GET /users/me`) e converter em conta (`POST /users/me/account`).
 - **Activities**: listar (paginado), criar atividade (RUN/WALK) e um exemplo de payload inválido para testar as validações.
 - **Perfil e arquivos**: alterar perfil e enviar ou consultar fotos e percursos GPX.
-- **Stats**: resumo estatístico e evolução semanal do usuário.
+- **Stats**: resumo estatístico, evolução semanal e recordes pessoais do usuário.
 - **Goals**: criar desafios (km, atividades e pace), listar progresso/conquistas e consultar imagens; remover somente desafios sem medalha.
+- **Achievements**: consultar o catálogo completo de badges e o estado desbloqueado/bloqueado.
 - **Actuator**: health check da aplicação.
 
 ## Configuração e Setup
@@ -316,7 +346,7 @@ Variável opcional `CORS_ALLOWED_ORIGINS` (lista separada por vírgulas; padrão
 
 ### Migrações de banco (Flyway)
 
-O esquema é versionado em `src/main/resources/db/migration` (`V1__init_schema.sql` … `V9__preserve_goal_achievements.sql`). Bancos já existentes criados pelo `ddl-auto` são adotados automaticamente (`baseline-on-migrate`). Alterações de esquema devem virar novas migrações `V<n>__descricao.sql`. Os testes usam H2 com `create-drop` e o Flyway desabilitado.
+O esquema é versionado em `src/main/resources/db/migration` (`V1__init_schema.sql` … `V10__create_user_badges.sql`). Bancos já existentes criados pelo `ddl-auto` são adotados automaticamente (`baseline-on-migrate`). Alterações de esquema devem virar novas migrações `V<n>__descricao.sql`. Os testes usam H2 com `create-drop` e o Flyway desabilitado.
 
 ### Rodando com Docker Compose (recomendado)
 

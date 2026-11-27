@@ -34,11 +34,14 @@ class BestEffortCalculatorTest {
     }
 
     @Test
-    void excludesUntimedRoutesAndRejectsNonIncreasingTimes() {
+    void excludesUntimedRoutesAndRejectsDecreasingTimesButAcceptsDuplicates() {
         assertTrue(BestEffortCalculator.fastestSeconds(List.of(point(0, 0),
                 new TimedRoutePoint(0, .1, null)), 5000).isEmpty());
         assertThrows(IllegalArgumentException.class, () ->
-                BestEffortCalculator.fastestSeconds(List.of(point(0, 0), point(6000, 0)), 5000));
+                BestEffortCalculator.fastestSeconds(List.of(point(0, 0), point(6000, -1)), 5000));
+        // Duplicate consecutive timestamps are common in real GPS exports and must still be usable.
+        assertEquals(0, BestEffortCalculator.fastestSeconds(List.of(point(0, 0), point(6000, 0)), 5000)
+                .orElseThrow(), 1e-6);
     }
 
     @Test

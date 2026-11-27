@@ -11,7 +11,8 @@ public record ActivityCreationResult(
         Activity activity,
         double totalKmMonth,
         int streak,
-        List<String> newBadges
+        List<String> newBadges,
+        List<String> newAchievements
 ) {
 }
 

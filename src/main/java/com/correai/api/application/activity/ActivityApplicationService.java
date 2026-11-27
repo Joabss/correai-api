@@ -15,6 +15,8 @@ import com.correai.api.domain.port.in.activity.UpdateActivityUseCase;
 import com.correai.api.domain.port.in.activity.UpdateActivityCommand;
 import com.correai.api.domain.port.out.activity.ActivityRepositoryPort;
 import com.correai.api.domain.port.in.goal.EvaluateGoalsUseCase;
+import com.correai.api.domain.port.in.achievement.AchievementsUseCase;
+import com.correai.api.domain.model.achievement.BadgeCode;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -29,13 +31,15 @@ public class ActivityApplicationService implements CreateActivityUseCase, ListAc
     private final StreakCalculator streakCalculator;
     private final Clock clock;
     private final EvaluateGoalsUseCase goals;
+    private final AchievementsUseCase achievements;
 
     public ActivityApplicationService(ActivityRepositoryPort repository, StreakCalculator streakCalculator, Clock clock,
-                                      EvaluateGoalsUseCase goals) {
+                                      EvaluateGoalsUseCase goals, AchievementsUseCase achievements) {
         this.repository = repository;
         this.streakCalculator = streakCalculator;
         this.clock = clock;
         this.goals = goals;
+        this.achievements = achievements;
     }
 
     @Override
@@ -56,11 +60,13 @@ public class ActivityApplicationService implements CreateActivityUseCase, ListAc
 
         Activity saved = repository.save(activity);
         List<String> newBadges = goals.evaluate(command.userId()).stream().map(UUID::toString).toList();
+        List<String> newAchievements = achievements.evaluate(command.userId()).stream()
+                .map(BadgeCode::code).toList();
 
         double totalKmMonth = totalKmCurrentMonth(command.userId());
         int streak = streakCalculator.currentStreak(command.userId());
 
-        return new ActivityCreationResult(saved, totalKmMonth, streak, newBadges);
+        return new ActivityCreationResult(saved, totalKmMonth, streak, newBadges, newAchievements);
     }
 
     @Override
@@ -77,6 +83,7 @@ public class ActivityApplicationService implements CreateActivityUseCase, ListAc
     public void delete(UUID userId, UUID activityId) {
         Activity activity = get(userId, activityId);
         goals.evaluate(userId);
+        achievements.evaluate(userId);
         repository.delete(activity);
     }
 
@@ -88,6 +95,7 @@ public class ActivityApplicationService implements CreateActivityUseCase, ListAc
         goals.evaluate(command.userId());
         Activity saved = repository.save(updated);
         goals.evaluate(command.userId());
+        achievements.evaluate(command.userId());
         return saved;
     }
 

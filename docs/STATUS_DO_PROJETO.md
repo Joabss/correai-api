@@ -1,6 +1,6 @@
 # Status do projeto CorreAI
 
-Atualizado em 2026-11-24 a partir das notas em
+Atualizado em 2026-11-28 a partir das notas em
 `/data/Obsidian/MeuSegundoCerebro/CorreAI` e do codigo presente neste repositorio.
 
 ## Resumo
@@ -10,8 +10,9 @@ concluido. A API ja registra e lista atividades, calcula o resumo estatistico e
 resolve um usuario anonimo ou nomeado. A migracao estrutural para arquitetura hexagonal foi
 realizada e o build em Java 25 foi validado.
 
-O MVP descrito nas notas ainda nao esta completo: evolucao, metas, planejamento,
-badges, mobile e validacao ponta a ponta permanecem pendentes.
+O MVP descrito nas notas ainda nao esta completo: planejamento, mobile e
+validacao ponta a ponta permanecem pendentes. Evolucao, metas, desafios,
+recordes GPS e badges de conquistas ja tem implementacao no backend.
 
 ## Progresso por fase
 
@@ -20,7 +21,7 @@ badges, mobile e validacao ponta a ponta permanecem pendentes.
 | 0 - Preparacao | Parcial | Produto e escopo documentados; nao ha repositorio mobile neste workspace. |
 | 1 - Backend | Em andamento | User, Activity, atividades, stats basicos e usuario anonimo implementados. |
 | 2 - Mobile | Nao iniciado aqui | Nenhum projeto Flutter neste workspace. |
-| 3 - Qualidade | Parcial | 89 testes passam em Java 25; faltam fluxo ponta a ponta. |
+| 3 - Qualidade | Parcial | Suites unitarias e de integracao passam no Java 25; faltam fluxo ponta a ponta. |
 | 4 - Pre-lancamento | Nao iniciado | Deploy, release mobile e materiais de loja pendentes. |
 | 5 - MVP pronto | Nao atingido | Depende das capacidades e validacoes abaixo. |
 
@@ -41,7 +42,7 @@ badges, mobile e validacao ponta a ponta permanecem pendentes.
 | Remocao de fotos da atividade | Implementada em 2026-11-27: `DELETE /activities/{id}/photos/{photoId}`; apenas proprietario, inclui foto legada, idempotente e sem alterar percurso |
 | Erros padronizados (ProblemDetail), CORS e OpenAPI | Implementados |
 | Refresh token, recuperacao de senha e conversao de anonimo em conta | Implementados (`POST /auth/refresh`, `POST /auth/password-reset/request|confirm`, `POST /users/me/account`; tokens de uso unico em `one_time_tokens`, migracao `V5`); login com protecao contra enumeracao por tempo de resposta |
-| Migracoes Flyway | Implementadas (`V1` a `V9`; inicio da atividade em `V7`/`V8`, conquistas em `V9`) |
+| Migracoes Flyway | Implementadas (`V1` a `V10`; inicio da atividade em `V7`/`V8`, conquistas de desafio em `V9`, catalogo de badges em `V10`) |
 | `GET /activities/{id}` | Implementado |
 | Excluir atividade (`DELETE /activities/{id}`) | Implementado |
 | Editar atividade | Implementado em 2026-11-27 (`PUT /activities/{id}`): apenas o proprietario; recalcula pace e preserva inicio, fotos, percurso e identificador |
@@ -50,7 +51,7 @@ badges, mobile e validacao ponta a ponta permanecem pendentes.
 | PRs por trecho GPS | Implementados em 2026-11-27: `GET /stats/records`, top 3 por 5 km/10 km/21,0975 km/42,195 km, qualquer tipo de atividade; um melhor trecho por atividade, sem atravessar pausas; GPX antigo sem horario nao participa |
 | `GET /stats/evolution` | Implementado (semanal, `weeks` de 1 a 52) |
 | PlannedActivity | Pendente |
-| Badge/UserBadge genericos | Fora desta entrega; conquistas de desafios implementadas em `goals`, sem catalogo generico de badges |
+| Badges de conquistas (`/achievements/me`) | Implementados em 2026-11-28: catalogo fixo de 19 badges (`BadgeCode`), independente dos desafios; 15 com criterio computavel (distancias, sequencia de dias, km/mes, horario, recordes pessoais, metas semanais consecutivas, rotas exploradas), 4 bloqueados sem criterio ainda (`rei_da_montanha`, `chuva`, `em_grupo`, `campeao`); avaliados a cada criacao/edicao/exclusao de atividade; conquista e permanente (`user_badges`, `V10`) |
 
 ## Arquitetura e plataforma
 
@@ -102,7 +103,7 @@ badges, mobile e validacao ponta a ponta permanecem pendentes.
 
 Concluir a fundacao do backend antes de iniciar novas telas:
 
-1. Implementar planejamento e badges.
+1. Implementar planejamento.
 2. Iniciar o mobile com onboarding, registro, home e historico conectados a API.
 
 ## Criterio para encerrar a Fase 1
