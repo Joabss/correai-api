@@ -61,7 +61,7 @@ class GoalBadgeIntegrationTest {
     }
 
     @Test
-    void earnedBadgeSurvivesEditDeletionAndReplacementAndIsPrivate() throws Exception {
+    void goalCompletionSurvivesEditDeletionAndReplacementAndIsPrivate() throws Exception {
         AuthToken owner = tokens.issue();
         AuthToken other = tokens.issue();
         var goal = challenges.create(new CreateGoalCommand(owner.userId(), GoalType.ACTIVITIES, GoalPeriod.WEEKLY, 1));
@@ -91,7 +91,6 @@ class GoalBadgeIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].id").value(goal.id().toString()))
                 .andExpect(jsonPath("$[0].current").value(1));
-        mvc.perform(get(badge).header("Authorization", auth)).andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.IMAGE_PNG));
+        mvc.perform(get(badge).header("Authorization", auth)).andExpect(status().isNotFound());
     }
 }

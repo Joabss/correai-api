@@ -785,7 +785,7 @@
       "name": "Goals",
       "item": [
         {
-          "name": "Listar medalhas conquistadas",
+          "name": "Listar metas concluídas",
           "request": {
             "method": "GET",
             "header": [],
@@ -799,24 +799,6 @@
               "path": ["goals", "badges"]
             },
             "description": "Conquistas permanentes com achievedAt em UTC e progresso original, mesmo após editar/apagar atividades."
-          },
-          "response": []
-        },
-        {
-          "name": "Imagem da medalha",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "auth": {
-              "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]
-            },
-            "url": {
-              "raw": "{{baseUrl}}/goals/{{goalId}}/badge",
-              "host": ["{{baseUrl}}"],
-              "path": ["goals", "{{goalId}}", "badge"]
-            },
-            "description": "Imagem PNG privada da conquista. 404 para desafio sem medalha ou de outro usuário."
           },
           "response": []
         },
@@ -849,7 +831,7 @@
                 "goals"
               ]
             },
-            "description": "Substitui apenas desafios ativos sem medalha do mesmo tipo e período; conquistados permanecem.",
+            "description": "Substitui apenas desafios ativos não concluídos do mesmo tipo e período; concluídos permanecem.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"type\": \"DISTANCE_KM\",\n  \"period\": \"WEEKLY\",\n  \"target\": 30\n}",
@@ -1013,7 +995,7 @@
                 "{{goalId}}"
               ]
             },
-            "description": "Defina goalId com o id de um desafio. Desafios com medalha não podem ser apagados (409)."
+            "description": "Defina goalId com o id de um desafio. Desafios concluídos não podem ser apagados (409)."
           },
           "response": []
         }

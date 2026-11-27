@@ -6,5 +6,4 @@ import java.util.UUID;
 
 public interface GoalBadgesUseCase {
     List<Goal> listBadges(UUID userId);
-    Goal getBadge(UUID userId, UUID goalId);
 }

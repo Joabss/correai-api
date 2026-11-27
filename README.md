@@ -123,8 +123,7 @@ Os erros seguem o formato RFC 7807 (`ProblemDetail`, `application/problem+json`)
 | POST   | `/goals`            | Cria um desafio (substitui somente os não conquistados do mesmo tipo e período) |
 | GET    | `/goals`            | Lista desafios ativos e conquistas; progresso conquistado é preservado |
 | GET    | `/goals/badges`     | Lista conquistas permanentes do usuário |
-| GET    | `/goals/{id}/badge` | Imagem PNG privada da medalha conquistada |
-| DELETE | `/goals/{id}`       | Desativa desafio sem medalha; com medalha retorna `409` |
+| DELETE | `/goals/{id}`       | Desativa desafio não concluído; após conclusão retorna `409` |
 | GET    | `/achievements/me`  | Catálogo completo de badges de conquistas, com estado desbloqueado/bloqueado |
 | GET    | `/actuator/health`  | Health check da aplicação                    |
 | GET    | `/swagger-ui.html`  | Documentação interativa (OpenAPI em `/v3/api-docs`) |
@@ -165,8 +164,8 @@ retornam `404`. Ao excluir uma atividade, seus arquivos são excluídos.
 
 ### Desafios, conquistas e recordes pessoais
 
-Regras confirmadas pelo usuário em 2026-11-27: medalhas permanecem após editar/apagar
-atividades; desafios com badge não podem ser apagados; ouro, prata e bronze representam
+Regras confirmadas pelo usuário em 2026-11-27: conclusões permanecem após editar/apagar
+atividades; desafios concluídos não podem ser apagados; ouro, prata e bronze representam
 os três melhores tempos pessoais por trecho GPS, independentemente de `RUN` ou `WALK`.
 O nome visual é **Desafios**, mantendo as rotas `/goals`.
 Para desafios de pace, a comparação usa duração/distância sem arredondamento;
@@ -178,7 +177,7 @@ nas semanas seguintes nem com remoções/edições. A avaliação acontece ao cr
 desafios e ao criar/editar/apagar atividades, antes de reduzir o progresso.
 `newBadges` na resposta de criação da atividade contém os UUIDs dos desafios conquistados.
 Criar um novo desafio do mesmo tipo/período preserva os conquistados e substitui apenas
-os ainda não conquistados. Medalhas PNG são geradas localmente, sem serviços externos.
+os ainda não conquistados. Não há imagem PNG para a conclusão de metas.
 As mudanças de atividade e suas conquistas são transacionais nos endpoints REST;
 falha ao persistir o badge não deixa uma atividade criada com resposta de erro.
 Desafios existentes são avaliados no período atual; não há reconstrução de conquistas
@@ -276,7 +275,7 @@ desativa apenas o não conquistado anterior.
 `current`, `percentage` (0 a 100, sem `percentage` para `AVG_PACE`), `achieved`,
 `achievedAt` e os limites do período (originais para conquistados).
 Desafios de pace também trazem `targetPace` e `currentPace` no formato `mm:ss`.
-`DELETE` de um desafio inexistente ou de outro usuário retorna `404`; com medalha, `409`.
+`DELETE` de um desafio inexistente ou de outro usuário retorna `404`; se concluído, `409`.
 
 ```json
 { "type": "DISTANCE_KM", "period": "WEEKLY", "target": 30 }
@@ -319,7 +318,7 @@ A collection contém as pastas:
 - **Activities**: listar (paginado), criar atividade (RUN/WALK) e um exemplo de payload inválido para testar as validações.
 - **Perfil e arquivos**: alterar perfil e enviar ou consultar fotos e percursos GPX.
 - **Stats**: resumo estatístico, evolução semanal e recordes pessoais do usuário.
-- **Goals**: criar desafios (km, atividades e pace), listar progresso/conquistas e consultar imagens; remover somente desafios sem medalha.
+- **Goals**: criar desafios (km, atividades e pace), listar progresso/conquistas; remover somente desafios sem conquista.
 - **Achievements**: consultar o catálogo completo de badges e o estado desbloqueado/bloqueado.
 - **Actuator**: health check da aplicação.
 

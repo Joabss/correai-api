@@ -5,7 +5,6 @@ import com.correai.api.domain.model.goal.Goal;
 import com.correai.api.domain.model.goal.GoalNotFoundException;
 import com.correai.api.domain.model.goal.GoalHasBadgeException;
 import com.correai.api.domain.model.goal.GoalType;
-import com.correai.api.domain.model.media.MediaNotFoundException;
 import com.correai.api.domain.port.in.goal.EvaluateGoalsUseCase;
 import com.correai.api.domain.port.in.goal.GoalBadgesUseCase;
 import com.correai.api.domain.port.in.goal.CreateGoalCommand;
@@ -81,14 +80,6 @@ public class GoalApplicationService implements CreateGoalUseCase, ListGoalsUseCa
     public List<Goal> listBadges(UUID userId) {
         evaluate(userId);
         return goalRepository.findAwardedByUserId(userId);
-    }
-
-    @Override
-    public Goal getBadge(UUID userId, UUID goalId) {
-        Goal goal = goalRepository.findByIdAndUserId(goalId, userId)
-                .orElseThrow(() -> new GoalNotFoundException(goalId));
-        if (!goal.hasBadge()) throw new MediaNotFoundException();
-        return goal;
     }
 
     private GoalProgress progressOf(Goal goal, LocalDate today) {

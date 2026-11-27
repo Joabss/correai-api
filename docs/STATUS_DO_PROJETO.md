@@ -47,7 +47,7 @@ recordes GPS e badges de conquistas ja tem implementacao no backend.
 | Excluir atividade (`DELETE /activities/{id}`) | Implementado |
 | Editar atividade | Implementado em 2026-11-27 (`PUT /activities/{id}`): apenas o proprietario; recalcula pace e preserva inicio, fotos, percurso e identificador |
 | Metas (`/goals`): km, atividades e pace, semanal/mensal, varias ativas | Implementado |
-| Desafios com conquistas permanentes | Implementados em 2026-11-27: snapshot em `goals` (`V9`), `GET /goals/badges`, PNG privado em `GET /goals/{id}/badge`; exclusao protegida com `409` e conquistas preservadas apos editar/apagar atividades |
+| Desafios com conquistas permanentes | Implementados em 2026-11-27: snapshot em `goals` (`V9`), `GET /goals/badges`; exclusao protegida com `409` e conquistas preservadas apos editar/apagar atividades. Imagem PNG de medalha removida. |
 | PRs por trecho GPS | Implementados em 2026-11-27: `GET /stats/records`, top 3 por 5 km/10 km/21,0975 km/42,195 km, qualquer tipo de atividade; um melhor trecho por atividade, sem atravessar pausas; GPX antigo sem horario nao participa |
 | `GET /stats/evolution` | Implementado (semanal, `weeks` de 1 a 52) |
 | PlannedActivity | Pendente |
