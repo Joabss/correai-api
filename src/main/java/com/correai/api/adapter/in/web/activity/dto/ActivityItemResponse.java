@@ -6,7 +6,9 @@ import com.correai.api.domain.model.activity.TrainingType;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Getter
@@ -16,6 +18,8 @@ public class ActivityItemResponse {
     private UUID id;
     private ActivityType type;
     private LocalDate date;
+    private LocalTime startTime;
+    private Instant startedAt;
     private Double distanceKm;
     private String avgPace;
     private Integer durationSeconds;
@@ -23,4 +27,3 @@ public class ActivityItemResponse {
     private PerceivedEffort perceivedEffort;
     private String notes;
 }
-

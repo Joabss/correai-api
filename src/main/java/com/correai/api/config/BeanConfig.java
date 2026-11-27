@@ -4,8 +4,10 @@ import com.correai.api.application.activity.ActivityApplicationService;
 import com.correai.api.application.common.StreakCalculator;
 import com.correai.api.application.goal.GoalApplicationService;
 import com.correai.api.application.stats.StatsApplicationService;
+import com.correai.api.application.stats.PersonalRecordApplicationService;
 import com.correai.api.application.auth.AuthApplicationService;
 import com.correai.api.application.user.UserApplicationService;
+import com.correai.api.application.media.MediaApplicationService;
 import com.correai.api.domain.port.out.activity.ActivityRepositoryPort;
 import com.correai.api.domain.port.out.auth.OneTimeTokenPort;
 import com.correai.api.domain.port.out.auth.PasswordHasherPort;
@@ -13,17 +15,20 @@ import com.correai.api.domain.port.out.auth.PasswordResetNotifierPort;
 import com.correai.api.domain.port.out.auth.TokenPort;
 import com.correai.api.domain.port.out.goal.GoalRepositoryPort;
 import com.correai.api.domain.port.out.user.UserRepositoryPort;
+import com.correai.api.domain.port.out.media.MediaRepositoryPort;
+import com.correai.api.domain.port.in.goal.EvaluateGoalsUseCase;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
+import java.time.ZoneId;
 
 @Configuration
 public class BeanConfig {
 
     @Bean
     public Clock clock() {
-        return Clock.systemDefaultZone();
+        return Clock.system(ZoneId.of("America/Sao_Paulo"));
     }
 
     @Bean
@@ -33,14 +38,20 @@ public class BeanConfig {
 
     @Bean
     public ActivityApplicationService activityApplicationService(
-            ActivityRepositoryPort repository, StreakCalculator streakCalculator, Clock clock) {
-        return new ActivityApplicationService(repository, streakCalculator, clock);
+            ActivityRepositoryPort repository, StreakCalculator streakCalculator, Clock clock,
+            EvaluateGoalsUseCase goals) {
+        return new ActivityApplicationService(repository, streakCalculator, clock, goals);
     }
 
     @Bean
     public StatsApplicationService statsApplicationService(
             ActivityRepositoryPort repository, StreakCalculator streakCalculator, Clock clock) {
         return new StatsApplicationService(repository, streakCalculator, clock);
+    }
+
+    @Bean
+    public PersonalRecordApplicationService personalRecordApplicationService(MediaRepositoryPort media) {
+        return new PersonalRecordApplicationService(media);
     }
 
     @Bean
@@ -61,5 +72,11 @@ public class BeanConfig {
             UserRepositoryPort repository, TokenPort tokenPort, PasswordHasherPort passwordHasher,
             OneTimeTokenPort oneTimeTokens) {
         return new UserApplicationService(repository, tokenPort, passwordHasher, oneTimeTokens);
+    }
+
+    @Bean
+    public MediaApplicationService mediaApplicationService(
+            MediaRepositoryPort media, ActivityRepositoryPort activities) {
+        return new MediaApplicationService(media, activities);
     }
 }

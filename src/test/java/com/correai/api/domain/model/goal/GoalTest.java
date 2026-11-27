@@ -23,6 +23,20 @@ class GoalTest {
         UUID userId = UUID.randomUUID();
         assertThrows(IllegalArgumentException.class, () -> Goal.create(userId, GoalType.ACTIVITIES, GoalPeriod.WEEKLY, 0));
         assertThrows(IllegalArgumentException.class, () -> Goal.create(userId, GoalType.ACTIVITIES, GoalPeriod.WEEKLY, -1));
+        assertThrows(IllegalArgumentException.class, () -> Goal.create(userId, GoalType.ACTIVITIES, GoalPeriod.WEEKLY, Double.NaN));
+        assertThrows(IllegalArgumentException.class, () -> Goal.create(userId, GoalType.ACTIVITIES, GoalPeriod.WEEKLY, Double.POSITIVE_INFINITY));
+    }
+
+    @Test
+    void awardedGoalIsImmutableAndProtected() {
+        Goal goal = Goal.create(UUID.randomUUID(), GoalType.DISTANCE_KM, GoalPeriod.WEEKLY, 5);
+        var at = java.time.Instant.parse("2026-09-30T12:00:00Z");
+        Goal awarded = goal.achieve(at, LocalDate.of(2026, 9, 28), 5);
+        assertFalse(goal.hasBadge());
+        assertTrue(awarded.hasBadge());
+        assertSame(awarded, awarded.achieve(at.plusSeconds(5), LocalDate.of(2026, 10, 5), 10));
+        assertThrows(GoalHasBadgeException.class, awarded::deactivate);
+        assertThrows(IllegalArgumentException.class, () -> goal.achieve(at, LocalDate.now(), 4.999));
     }
 
     @Test

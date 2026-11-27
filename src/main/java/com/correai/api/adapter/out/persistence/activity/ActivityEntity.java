@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Getter
@@ -30,6 +31,10 @@ public class ActivityEntity {
     private ActivityType type;
 
     private LocalDate activityDate;
+
+    private LocalTime startTime;
+
+    private Instant startedAt;
 
     private Double distanceKm;
 
@@ -55,4 +60,3 @@ public class ActivityEntity {
     }
 
 }
-

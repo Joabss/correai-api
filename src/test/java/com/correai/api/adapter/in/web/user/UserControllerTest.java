@@ -9,6 +9,7 @@ import com.correai.api.domain.model.user.User;
 import com.correai.api.domain.port.in.user.ConvertToAccountUseCase;
 import com.correai.api.domain.port.in.user.CreateUserUseCase;
 import com.correai.api.domain.port.in.user.GetUserUseCase;
+import com.correai.api.domain.port.in.user.UpdateUserUseCase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -22,6 +23,7 @@ import java.util.UUID;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(controllers = UserController.class,
@@ -44,6 +46,21 @@ class UserControllerTest {
 
     @MockitoBean
     private ConvertToAccountUseCase convertToAccountUseCase;
+
+    @MockitoBean
+    private UpdateUserUseCase updateUserUseCase;
+
+    @Test
+    void update_shouldReturnUpdatedUser() throws Exception {
+        UUID userId = UUID.randomUUID();
+        when(updateUserUseCase.update(userId, "Ana", "ana@example.com", null))
+                .thenReturn(User.reconstruct(userId, "Ana", "ana@example.com", Instant.EPOCH));
+        mockMvc.perform(put("/users/me").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Ana\",\"email\":\"ana@example.com\"}")
+                        .requestAttr(UserContextInterceptor.USER_REQUEST_ATTR, userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("ana@example.com"));
+    }
 
     @Test
     void convertToAccount_shouldReturnUser() throws Exception {

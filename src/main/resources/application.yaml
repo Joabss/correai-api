@@ -2,6 +2,11 @@ spring:
   application:
     name: correai-api
 
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 16MB
+
   profiles:
     active: dev
 

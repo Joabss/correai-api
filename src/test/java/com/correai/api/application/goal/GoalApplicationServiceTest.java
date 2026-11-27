@@ -6,6 +6,7 @@ import com.correai.api.domain.model.activity.PerceivedEffort;
 import com.correai.api.domain.model.activity.TrainingType;
 import com.correai.api.domain.model.goal.Goal;
 import com.correai.api.domain.model.goal.GoalNotFoundException;
+import com.correai.api.domain.model.goal.GoalHasBadgeException;
 import com.correai.api.domain.model.goal.GoalPeriod;
 import com.correai.api.domain.model.goal.GoalType;
 import com.correai.api.domain.port.in.goal.CreateGoalCommand;
@@ -64,9 +65,8 @@ class GoalApplicationServiceTest {
         Goal created = service.create(new CreateGoalCommand(userId, GoalType.DISTANCE_KM, GoalPeriod.WEEKLY, 30));
 
         ArgumentCaptor<Goal> saved = ArgumentCaptor.forClass(Goal.class);
-        verify(goalRepository, times(2)).save(saved.capture());
-        assertFalse(saved.getAllValues().getFirst().active());
-        assertEquals(sameKind.id(), saved.getAllValues().getFirst().id());
+        verify(goalRepository).save(saved.capture());
+        verify(goalRepository).deactivateUnawarded(sameKind.deactivate());
         assertTrue(created.active());
         assertEquals(30, created.target());
     }
@@ -77,6 +77,7 @@ class GoalApplicationServiceTest {
         when(goalRepository.findActiveByUserId(userId)).thenReturn(List.of(goal));
         when(activityRepository.findByUserIdAndActivityDateBetween(userId, WEEK_START, TODAY))
                 .thenReturn(List.of(activity(12.0, 3600)));
+        when(goalRepository.award(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         GoalProgress progress = service.listActive(userId).getFirst();
 
@@ -107,6 +108,7 @@ class GoalApplicationServiceTest {
         when(goalRepository.findActiveByUserId(userId)).thenReturn(List.of(goal));
         when(activityRepository.findByUserIdAndActivityDateBetween(userId, WEEK_START, TODAY))
                 .thenReturn(List.of(activity(10.0, 3000)));
+        when(goalRepository.award(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         GoalProgress progress = service.listActive(userId).getFirst();
 
@@ -128,6 +130,30 @@ class GoalApplicationServiceTest {
     }
 
     @Test
+    void paceComparisonDoesNotRoundDownToAwardAnUnmetChallenge() {
+        Goal goal = Goal.reconstruct(UUID.randomUUID(), userId, GoalType.AVG_PACE,
+                GoalPeriod.WEEKLY, 330, true, Instant.now());
+        when(goalRepository.findActiveByUserId(userId)).thenReturn(List.of(goal));
+        when(activityRepository.findByUserIdAndActivityDateBetween(userId, WEEK_START, TODAY))
+                .thenReturn(List.of(activity(10, 3309)));
+        assertFalse(service.listActive(userId).getFirst().achieved());
+        verify(goalRepository, never()).award(any());
+    }
+
+    @Test
+    void fractionalPaceBelowOneSecondRemainsPositiveAndCanBeAwarded() {
+        Goal goal = Goal.reconstruct(UUID.randomUUID(), userId, GoalType.AVG_PACE,
+                GoalPeriod.WEEKLY, 330, true, Instant.now());
+        when(goalRepository.findActiveByUserId(userId)).thenReturn(List.of(goal));
+        when(activityRepository.findByUserIdAndActivityDateBetween(userId, WEEK_START, TODAY))
+                .thenReturn(List.of(activity(10, 1)));
+        when(goalRepository.award(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        var progress = service.listActive(userId).getFirst();
+        assertTrue(progress.achieved());
+        assertEquals(0.1, progress.current());
+    }
+
+    @Test
     void deactivate_shouldSaveInactiveGoal() {
         Goal goal = Goal.reconstruct(UUID.randomUUID(), userId, GoalType.ACTIVITIES, GoalPeriod.WEEKLY, 3, true, Instant.now());
         when(goalRepository.findByIdAndUserId(goal.id(), userId)).thenReturn(Optional.of(goal));
@@ -135,7 +161,7 @@ class GoalApplicationServiceTest {
         service.deactivate(userId, goal.id());
 
         ArgumentCaptor<Goal> saved = ArgumentCaptor.forClass(Goal.class);
-        verify(goalRepository).save(saved.capture());
+        verify(goalRepository).deactivateUnawarded(saved.capture());
         assertFalse(saved.getValue().active());
     }
 
@@ -146,6 +172,51 @@ class GoalApplicationServiceTest {
 
         assertThrows(GoalNotFoundException.class, () -> service.deactivate(userId, goalId));
         verify(goalRepository, never()).save(any());
+    }
+
+    @Test
+    void achievementSurvivesLowerProgressAndNewPeriodAndCannotBeDeleted() {
+        Goal original = Goal.reconstruct(UUID.randomUUID(), userId, GoalType.DISTANCE_KM,
+                GoalPeriod.WEEKLY, 10, true, Instant.parse("2026-09-01T00:00:00Z"));
+        Goal awarded = original.achieve(Instant.parse("2026-09-29T12:00:00Z"), WEEK_START, 12);
+        when(goalRepository.findActiveByUserId(userId)).thenReturn(List.of(awarded));
+        when(goalRepository.findByIdAndUserId(awarded.id(), userId)).thenReturn(Optional.of(awarded));
+        service = new GoalApplicationService(goalRepository, activityRepository,
+                Clock.fixed(Instant.parse("2026-10-07T12:00:00Z"), ZoneOffset.UTC));
+
+        GoalProgress progress = service.listActive(userId).getFirst();
+        assertTrue(progress.achieved());
+        assertEquals(12, progress.current());
+        assertEquals(WEEK_START, progress.periodStart());
+        assertEquals(awarded.achievedAt(), progress.goal().achievedAt());
+        assertThrows(GoalHasBadgeException.class, () -> service.deactivate(userId, awarded.id()));
+        verifyNoInteractions(activityRepository);
+        verify(goalRepository, never()).deactivateUnawarded(any());
+        verify(goalRepository, never()).award(any());
+    }
+
+    @Test
+    void replacingSameKindKeepsAwardedChallenge() {
+        Goal awarded = Goal.reconstruct(UUID.randomUUID(), userId, GoalType.ACTIVITIES,
+                GoalPeriod.WEEKLY, 1, true, Instant.now())
+                .achieve(Instant.parse("2026-09-29T12:00:00Z"), WEEK_START, 1);
+        when(goalRepository.findActiveByUserId(userId)).thenReturn(List.of(awarded));
+        when(goalRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        service.create(new CreateGoalCommand(userId, GoalType.ACTIVITIES, GoalPeriod.WEEKLY, 3));
+        verify(goalRepository, never()).deactivateUnawarded(any());
+    }
+
+    @Test
+    void deletingPreviouslyUnobservedCompletedChallengeAwardsAndRejectsDeletion() {
+        Goal goal = Goal.reconstruct(UUID.randomUUID(), userId, GoalType.ACTIVITIES,
+                GoalPeriod.WEEKLY, 1, true, Instant.now());
+        when(goalRepository.findByIdAndUserId(goal.id(), userId)).thenReturn(Optional.of(goal));
+        when(activityRepository.findByUserIdAndActivityDateBetween(userId, WEEK_START, TODAY))
+                .thenReturn(List.of(activity(1, 300)));
+        when(goalRepository.award(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        assertThrows(GoalHasBadgeException.class, () -> service.deactivate(userId, goal.id()));
+        verify(goalRepository).award(any());
+        verify(goalRepository, never()).deactivateUnawarded(any());
     }
 
     private Activity activity(double km, int seconds) {

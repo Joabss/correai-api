@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Getter
@@ -39,6 +40,9 @@ public class GoalEntity {
     private boolean active;
 
     private Instant createdAt;
+    private Instant achievedAt;
+    private LocalDate achievedPeriodStart;
+    private Double achievedCurrent;
 
     @PrePersist
     void prePersist() {

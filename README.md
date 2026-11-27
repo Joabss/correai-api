@@ -103,20 +103,105 @@ Os erros seguem o formato RFC 7807 (`ProblemDetail`, `application/problem+json`)
 | POST   | `/auth/password-reset/confirm` | Define nova senha (`{"token","newPassword"}`); `204` |
 | POST   | `/users`            | Cadastra usuário (`{"name","email","password"}`) e retorna o JWT |
 | GET    | `/users/me`         | Retorna o usuário autenticado (`id`, `name`, `email`, `anonymous`, `createdAt`) |
+| PUT    | `/users/me`         | Altera nome e e-mail do usuário autenticado |
+| PUT/GET | `/users/me/photo`  | Inclui, substitui ou consulta a foto de perfil |
 | POST   | `/users/me/account` | Converte o usuário anônimo/legado em conta (`{"name","email","password"}`); `409` se já tiver conta |
 | GET    | `/activities`       | Lista paginada das atividades (`?page=0&size=20`, máx. 100) |
 | POST   | `/activities`       | Cria uma nova atividade                      |
 | GET    | `/stats/summary`    | Retorna o resumo estatístico do usuário      |
 | GET    | `/stats/evolution`  | Evolução semanal (`?weeks=8`, de 1 a 52)     |
+| GET    | `/stats/records`    | Três melhores tempos por trecho GPS: 5 km, 10 km, 21,0975 km e 42,195 km |
 | GET    | `/activities/{id}`  | Detalhe de uma atividade (inclui tipo de treino, esforço e notas) |
+| PUT    | `/activities/{id}`  | Edita tipo, distância, duração, treino, esforço e notas; retorna o detalhe atualizado |
 | DELETE | `/activities/{id}`  | Remove uma atividade (404 se não for do usuário) |
-| POST   | `/goals`            | Cria uma meta (substitui a ativa do mesmo tipo e período) |
-| GET    | `/goals`            | Lista as metas ativas com o progresso no período atual |
-| DELETE | `/goals/{id}`       | Desativa uma meta                            |
+| PUT/GET | `/activities/{id}/photo` | Inclui, substitui ou consulta a foto da atividade |
+| GET | `/activities/{id}/photos` | Lista os UUIDs das fotos da atividade, incluindo a foto legada |
+| PUT/GET | `/activities/{id}/photos/{photoId}` | Envia ou consulta uma foto individual; repetir o PUT com o mesmo UUID substitui apenas essa foto |
+| DELETE | `/activities/{id}/photos/{photoId}` | Apaga uma foto da atividade do proprietário; `204` também se já tiver sido apagada |
+| PUT/GET | `/activities/{id}/route` | Inclui, substitui ou consulta o percurso em GPX |
+| POST   | `/goals`            | Cria um desafio (substitui somente os não conquistados do mesmo tipo e período) |
+| GET    | `/goals`            | Lista desafios ativos e conquistas; progresso conquistado é preservado |
+| GET    | `/goals/badges`     | Lista conquistas permanentes do usuário |
+| GET    | `/goals/{id}/badge` | Imagem PNG privada da medalha conquistada |
+| DELETE | `/goals/{id}`       | Desativa desafio sem medalha; com medalha retorna `409` |
 | GET    | `/actuator/health`  | Health check da aplicação                    |
 | GET    | `/swagger-ui.html`  | Documentação interativa (OpenAPI em `/v3/api-docs`) |
 
 As rotas `/activities` e `/stats` exigem o header `Authorization: Bearer <token>`.
+
+**Perfil e arquivos:** os endpoints acima exigem autenticação e restringem arquivos ao
+usuário proprietário. `PUT /users/me` recebe `name`, `email` e `currentPassword`.
+Para contas cadastradas, o e-mail é obrigatório e a senha atual é exigida somente
+quando ele muda; e-mail já usado retorna `409`, senha incorreta retorna `401`.
+Usuários anônimos podem alterar o nome com `email: null`; para definir e-mail e
+senha, usam `POST /users/me/account`.
+
+`PUT /activities/{id}` exige `type`, `distanceKm` (mínimo 0,01 km) e `durationSeconds`
+(inteiro positivo). `trainingType`, `perceivedEffort` e `notes` são substituídos:
+omitir ou enviar `null` remove o valor; notas têm no máximo 255 caracteres.
+A edição preserva identificador, proprietário, data/hora de início, fotos e percurso.
+O pace é recalculado, mas o percurso GPS não é alterado. Só o proprietário pode editar;
+atividade ausente ou de outro usuário retorna `404`. O último salvamento prevalece.
+Fotos são adicionadas e apagadas pelos endpoints de mídia, separadamente da edição dos dados.
+O UUID da atividade identifica sua foto legada na galeria; a remoção dessa foto também remove
+o arquivo consultado pelo endpoint antigo `/activities/{id}/photo`. Apagar uma foto não altera o percurso.
+
+Os `PUT` de foto e percurso recebem `multipart/form-data` com um campo de arquivo
+chamado `file` e substituem o arquivo anterior. Fotos aceitam JPEG ou PNG até
+15 MiB, com até 40 milhões de pixels e dimensões máximas de 10.000 pixels por
+lado. O aplicativo deve converter fotos HEIC para JPEG ou PNG. A imagem original
+é armazenada, inclusive eventuais metadados; o aplicativo deve removê-los antes
+do envio se não forem desejados.
+
+O percurso é um arquivo GPX 1.0 ou 1.1 de até 5 MiB, com 2 a 100.000 pontos
+de trajeto (`trkpt`) ou rota (`rtept`) e coordenadas válidas. A API valida a
+estrutura necessária para os pontos, não o esquema GPX completo, e devolve o
+arquivo original em `GET /activities/{id}/route`; o aplicativo é responsável
+por interpretá-lo e desenhá-lo no mapa. Os arquivos são armazenados no
+PostgreSQL e retornados sem cache; ausentes ou pertencentes a outra pessoa
+retornam `404`. Ao excluir uma atividade, seus arquivos são excluídos.
+
+### Desafios, conquistas e recordes pessoais
+
+Regras confirmadas pelo usuário em 2026-11-27: medalhas permanecem após editar/apagar
+atividades; desafios com badge não podem ser apagados; ouro, prata e bronze representam
+os três melhores tempos pessoais por trecho GPS, independentemente de `RUN` ou `WALK`.
+O nome visual é **Desafios**, mantendo as rotas `/goals`.
+Para desafios de pace, a comparação usa duração/distância sem arredondamento;
+o formato `mm:ss` é somente apresentação.
+
+Ao atingir o objetivo semanal/mensal, o desafio guarda `achievedAt` (UTC), o início do
+período e o progresso que gerou a conquista (migração `V9`). Essa fotografia não muda
+nas semanas seguintes nem com remoções/edições. A avaliação acontece ao criar/listar
+desafios e ao criar/editar/apagar atividades, antes de reduzir o progresso.
+`newBadges` na resposta de criação da atividade contém os UUIDs dos desafios conquistados.
+Criar um novo desafio do mesmo tipo/período preserva os conquistados e substitui apenas
+os ainda não conquistados. Medalhas PNG são geradas localmente, sem serviços externos.
+As mudanças de atividade e suas conquistas são transacionais nos endpoints REST;
+falha ao persistir o badge não deixa uma atividade criada com resposta de erro.
+Desafios existentes são avaliados no período atual; não há reconstrução de conquistas
+históricas que nunca foram registradas.
+
+`GET /stats/records` retorna quatro grupos na ordem das distâncias oficiais, cada um
+com até três `efforts` (`activityId`, `durationSeconds` decimal), do menor tempo ao maior.
+Grupos sem resultado têm `efforts: []`. Cada atividade fornece somente seu melhor trecho
+por distância, evitando medalhas ocupadas por trechos sobrepostos da mesma gravação.
+Empates no tempo exato usam o UUID da atividade para ordenação estável.
+
+Os pontos GPX precisam ter `<time>` ISO 8601 com offset ou `Z`, estritamente crescente
+dentro de cada segmento. Os horários são interpretados como instantes, independentemente
+do fuso do servidor. A distância usa Haversine (raio 6.371.000 m), com interpolação linear
+do tempo entre pontos nas duas extremidades do trecho. Não há tolerância de distância
+nem extrapolação; pausas (`trkseg` separados) nunca são atravessadas. Tempo parado dentro
+do trecho conta. GPX sem horários continua aceito para mapas, mas não gera PRs; registros
+manuais sem GPX também não participam. Editar distância/duração não altera os horários GPS;
+excluir a atividade ou substituir seu GPX recalcula o ranking, sem afetar badges.
+O cálculo lê um percurso por vez e mantém somente três resultados por distância;
+o custo da consulta cresce com os percursos/pontos do usuário, sem cache persistente.
+
+```json
+{ "name": "Ana", "email": "ana@example.com", "currentPassword": "senha-atual" }
+```
 
 **Paginação de `GET /activities`:**
 
@@ -127,7 +212,7 @@ As rotas `/activities` e `/stats` exigem o header `Authorization: Bearer <token>
 ```json
 {
   "content": [
-    { "id": "...", "type": "RUN", "date": "2026-09-30", "distanceKm": 5.2, "avgPace": "04:48", "durationSeconds": 1500 }
+    { "id": "...", "type": "RUN", "date": "2026-09-30", "startTime": "22:00:00", "startedAt": "2026-10-01T01:00:00Z", "distanceKm": 5.2, "avgPace": "04:48", "durationSeconds": 1500 }
   ],
   "page": 0,
   "size": 20,
@@ -148,7 +233,9 @@ As rotas `/activities` e `/stats` exigem o header `Authorization: Bearer <token>
 }
 ```
 
-**Metas (`/goals`):** o usuário pode ter várias metas ativas, no máximo uma por combinação de tipo e período. Criar uma meta do mesmo tipo e período desativa a anterior.
+**Desafios (`/goals`):** o usuário pode ter vários desafios conquistados e, no máximo,
+um ainda não conquistado por combinação de tipo/período. Criar outro do mesmo tipo/período
+desativa apenas o não conquistado anterior.
 
 | `type`        | `target`                               | Meta atingida quando                |
 |---------------|----------------------------------------|-------------------------------------|
@@ -156,7 +243,11 @@ As rotas `/activities` e `/stats` exigem o header `Authorization: Bearer <token>
 | `ACTIVITIES`  | número de atividades                   | atividades do período >= `target`   |
 | `AVG_PACE`    | pace médio em segundos por km          | pace do período <= `target`         |
 
-`period` é `WEEKLY` (segunda a domingo) ou `MONTHLY` (mês corrente). `GET /goals` devolve `current`, `percentage` (0 a 100, sem `percentage` para `AVG_PACE`), `achieved` e os limites do período. Metas de pace também trazem `targetPace` e `currentPace` no formato `mm:ss`. `DELETE` de uma meta inexistente ou de outro usuário retorna `404`.
+`period` é `WEEKLY` (segunda a domingo) ou `MONTHLY` (mês corrente). `GET /goals` devolve
+`current`, `percentage` (0 a 100, sem `percentage` para `AVG_PACE`), `achieved`,
+`achievedAt` e os limites do período (originais para conquistados).
+Desafios de pace também trazem `targetPace` e `currentPace` no formato `mm:ss`.
+`DELETE` de um desafio inexistente ou de outro usuário retorna `404`; com medalha, `409`.
 
 ```json
 { "type": "DISTANCE_KM", "period": "WEEKLY", "target": 30 }
@@ -170,11 +261,18 @@ As consultas por intervalo de datas usadas nas estatísticas não são paginadas
   "type": "RUN",
   "distanceKm": 5.2,
   "durationSeconds": 1500,
+  "startedAt": "2026-11-27T22:00:00-03:00",
   "trainingType": "EASY",
   "perceivedEffort": "OK",
   "notes": "Treino leve de recuperação"
 }
 ```
+
+`startedAt` é opcional, mas clientes devem enviá-lo como data/hora ISO 8601 com o offset local do usuário.
+A API persiste o instante em UTC e mantém `date`/`startTime` no horário local informado; também retorna
+`startedAt` em UTC. O app converte esse instante para o fuso local do dispositivo ao exibir o histórico.
+Para compatibilidade, um `startedAt` antigo sem offset e a omissão do campo são interpretados em
+`America/Sao_Paulo`. Atividades antigas sem instante continuam usando seus campos locais `date` e `startTime`.
 
 ### Collection do Postman
 
@@ -190,8 +288,9 @@ A collection contém as pastas:
 - **Auth**: criar usuário anônimo, login, refresh token e recuperação de senha (solicitar/confirmar).
 - **Users**: cadastrar usuário com nome, e-mail e senha (`POST /users`), consultar o usuário autenticado (`GET /users/me`) e converter em conta (`POST /users/me/account`).
 - **Activities**: listar (paginado), criar atividade (RUN/WALK) e um exemplo de payload inválido para testar as validações.
+- **Perfil e arquivos**: alterar perfil e enviar ou consultar fotos e percursos GPX.
 - **Stats**: resumo estatístico e evolução semanal do usuário.
-- **Goals**: criar metas (km, atividades e pace), listar o progresso e desativar.
+- **Goals**: criar desafios (km, atividades e pace), listar progresso/conquistas e consultar imagens; remover somente desafios sem medalha.
 - **Actuator**: health check da aplicação.
 
 ## Configuração e Setup
@@ -217,7 +316,7 @@ Variável opcional `CORS_ALLOWED_ORIGINS` (lista separada por vírgulas; padrão
 
 ### Migrações de banco (Flyway)
 
-O esquema é versionado em `src/main/resources/db/migration` (`V1__init_schema.sql` … `V5__create_one_time_tokens.sql`). Bancos já existentes criados pelo `ddl-auto` são adotados automaticamente (`baseline-on-migrate`). Alterações de esquema devem virar novas migrações `V<n>__descricao.sql`. Os testes usam H2 com `create-drop` e o Flyway desabilitado.
+O esquema é versionado em `src/main/resources/db/migration` (`V1__init_schema.sql` … `V9__preserve_goal_achievements.sql`). Bancos já existentes criados pelo `ddl-auto` são adotados automaticamente (`baseline-on-migrate`). Alterações de esquema devem virar novas migrações `V<n>__descricao.sql`. Os testes usam H2 com `create-drop` e o Flyway desabilitado.
 
 ### Rodando com Docker Compose (recomendado)
 

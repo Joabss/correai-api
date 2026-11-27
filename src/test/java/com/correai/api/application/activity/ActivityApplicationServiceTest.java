@@ -9,7 +9,10 @@ import com.correai.api.domain.model.pagination.PageQuery;
 import com.correai.api.domain.model.pagination.PageResult;
 import com.correai.api.domain.port.in.activity.ActivityCreationResult;
 import com.correai.api.domain.port.in.activity.CreateActivityCommand;
+import com.correai.api.domain.port.in.activity.UpdateActivityCommand;
+import com.correai.api.domain.model.activity.ActivityNotFoundException;
 import com.correai.api.domain.port.out.activity.ActivityRepositoryPort;
+import com.correai.api.domain.port.in.goal.EvaluateGoalsUseCase;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,6 +21,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,21 +39,53 @@ class ActivityApplicationServiceTest {
 
     @Mock
     private ActivityRepositoryPort repository;
+    @Mock
+    private EvaluateGoalsUseCase goals;
 
     private ActivityApplicationService service;
 
     private UUID userId;
     private CreateActivityCommand command;
     private Activity activity;
+    private Clock clock;
 
     @BeforeEach
     void setUp() {
-        Clock clock = Clock.systemDefaultZone();
-        service = new ActivityApplicationService(repository, new StreakCalculator(repository, clock), clock);
+        clock = Clock.fixed(Instant.parse("2026-11-28T01:00:00Z"), ZoneId.of("America/Sao_Paulo"));
+        service = new ActivityApplicationService(repository, new StreakCalculator(repository, clock), clock, goals);
         userId = UUID.randomUUID();
-        command = new CreateActivityCommand(userId, ActivityType.RUN, 10.0, 3600, TrainingType.EASY, PerceivedEffort.OK, "Test run");
-        activity = Activity.reconstruct(UUID.randomUUID(), userId, ActivityType.RUN, LocalDate.now(), 10.0, 3600, 360,
+        command = new CreateActivityCommand(userId, ActivityType.RUN, 10.0, 3600, TrainingType.EASY,
+                PerceivedEffort.OK, "Test run", null);
+        activity = Activity.reconstructWithStartedAt(UUID.randomUUID(), userId, ActivityType.RUN, LocalDate.now(clock),
+                LocalTime.of(22, 0), Instant.now(), 10.0, 3600, 360,
                 TrainingType.EASY, PerceivedEffort.OK, "Test run", java.time.Instant.now());
+    }
+
+    @Test
+    void updateSavesExistingActivityWithRecalculatedPace() {
+        when(repository.findByIdAndUserId(activity.id(), userId)).thenReturn(java.util.Optional.of(activity));
+        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        Activity result = service.update(new UpdateActivityCommand(userId, activity.id(), ActivityType.WALK,
+                5, 2400, null, null, "updated"));
+        assertEquals(activity.id(), result.id());
+        assertEquals(activity.startedAt(), result.startedAt());
+        assertEquals(activity.activityDate(), result.activityDate());
+        assertEquals(activity.createdAt(), result.createdAt());
+        assertEquals(480, result.avgPaceSeconds());
+        assertEquals("updated", result.notes());
+        verify(repository).save(result);
+        var order = inOrder(goals, repository);
+        order.verify(goals).evaluate(userId);
+        order.verify(repository).save(result);
+        order.verify(goals).evaluate(userId);
+    }
+
+    @Test
+    void updateRejectsMissingOrForeignActivityWithoutSaving() {
+        assertThrows(ActivityNotFoundException.class, () -> service.update(new UpdateActivityCommand(
+                userId, UUID.randomUUID(), ActivityType.RUN, 1, 300, null, null, null)));
+        verify(repository, never()).save(any());
+        verifyNoInteractions(goals);
     }
 
     @Test
@@ -55,7 +96,7 @@ class ActivityApplicationServiceTest {
         when(repository.existsByUserIdAndActivityDate(eq(userId), any(LocalDate.class)))
                 .thenAnswer(invocation -> {
                     LocalDate date = invocation.getArgument(1);
-                    return date.equals(LocalDate.now());
+                    return date.equals(LocalDate.now(clock));
                 });
 
         ActivityCreationResult result = service.create(command);
@@ -65,6 +106,40 @@ class ActivityApplicationServiceTest {
         assertEquals(10.0, result.totalKmMonth());
         assertEquals(1, result.streak());
         verify(repository).save(any(Activity.class));
+    }
+
+    @Test
+    void create_shouldUseSaoPauloDateAndTimeWhenStartIsNotProvided() {
+        when(repository.save(any(Activity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(repository.findByUserIdAndActivityDateBetween(any(UUID.class), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of());
+        when(repository.existsByUserIdAndActivityDate(eq(userId), any(LocalDate.class))).thenReturn(false);
+
+        service.create(command);
+
+        var savedActivity = org.mockito.ArgumentCaptor.forClass(Activity.class);
+        verify(repository).save(savedActivity.capture());
+        assertEquals(LocalDate.of(2026, 11, 27), savedActivity.getValue().activityDate());
+        assertEquals(LocalTime.of(22, 0), savedActivity.getValue().startTime());
+    }
+
+    @Test
+    void create_shouldPreserveProvidedOffsetAndPersistInstant() {
+        OffsetDateTime startedAt = OffsetDateTime.of(2026, 6, 1, 4, 30, 0, 0, ZoneOffset.ofHours(9));
+        CreateActivityCommand commandWithStart = new CreateActivityCommand(userId, ActivityType.RUN, 10.0, 3600,
+                TrainingType.EASY, PerceivedEffort.OK, "Test run", startedAt);
+        when(repository.save(any(Activity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(repository.findByUserIdAndActivityDateBetween(any(UUID.class), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of());
+        when(repository.existsByUserIdAndActivityDate(eq(userId), any(LocalDate.class))).thenReturn(false);
+
+        service.create(commandWithStart);
+
+        var savedActivity = org.mockito.ArgumentCaptor.forClass(Activity.class);
+        verify(repository).save(savedActivity.capture());
+        assertEquals(startedAt.toLocalDate(), savedActivity.getValue().activityDate());
+        assertEquals(startedAt.toLocalTime(), savedActivity.getValue().startTime());
+        assertEquals(startedAt.toInstant(), savedActivity.getValue().startedAt());
     }
 
     @Test
@@ -117,7 +192,8 @@ class ActivityApplicationServiceTest {
 
     @Test
     void create_withInvalidDistance_shouldThrowException() {
-        CreateActivityCommand invalid = new CreateActivityCommand(userId, ActivityType.RUN, 0.0, 3600, TrainingType.EASY, PerceivedEffort.OK, "Test");
+        CreateActivityCommand invalid = new CreateActivityCommand(userId, ActivityType.RUN, 0.0, 3600,
+                TrainingType.EASY, PerceivedEffort.OK, "Test", null);
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> service.create(invalid));
@@ -126,11 +202,11 @@ class ActivityApplicationServiceTest {
 
     @Test
     void create_withInvalidDuration_shouldThrowException() {
-        CreateActivityCommand invalid = new CreateActivityCommand(userId, ActivityType.RUN, 10.0, 0, TrainingType.EASY, PerceivedEffort.OK, "Test");
+        CreateActivityCommand invalid = new CreateActivityCommand(userId, ActivityType.RUN, 10.0, 0,
+                TrainingType.EASY, PerceivedEffort.OK, "Test", null);
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> service.create(invalid));
         assertEquals("Duration must be greater than zero", exception.getMessage());
     }
 }
-

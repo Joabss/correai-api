@@ -8,11 +8,13 @@ public class GoalMapper {
 
     public GoalEntity toEntity(Goal goal) {
         return new GoalEntity(goal.id(), goal.userId(), goal.type(), goal.period(),
-                goal.target(), goal.active(), goal.createdAt());
+                goal.target(), goal.active(), goal.createdAt(),
+                goal.achievedAt(), goal.achievedPeriodStart(), goal.achievedCurrent());
     }
 
     public Goal toDomain(GoalEntity entity) {
-        return Goal.reconstruct(entity.getId(), entity.getUserId(), entity.getType(), entity.getPeriod(),
-                entity.getTarget(), entity.isActive(), entity.getCreatedAt());
+        return new Goal(entity.getId(), entity.getUserId(), entity.getType(), entity.getPeriod(),
+                entity.getTarget(), entity.isActive(), entity.getCreatedAt(),
+                entity.getAchievedAt(), entity.getAchievedPeriodStart(), entity.getAchievedCurrent());
     }
 }

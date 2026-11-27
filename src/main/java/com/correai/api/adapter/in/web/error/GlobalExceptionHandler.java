@@ -6,7 +6,10 @@ import com.correai.api.domain.model.auth.InvalidTokenException;
 import com.correai.api.domain.model.user.AccountAlreadyRegisteredException;
 import com.correai.api.domain.model.user.EmailAlreadyRegisteredException;
 import com.correai.api.domain.model.goal.GoalNotFoundException;
+import com.correai.api.domain.model.goal.GoalHasBadgeException;
 import com.correai.api.domain.model.user.UserNotFoundException;
+import com.correai.api.domain.model.user.ConcurrentProfileUpdateException;
+import com.correai.api.domain.model.media.MediaNotFoundException;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,14 +50,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(problem);
     }
 
-    @ExceptionHandler({EmailAlreadyRegisteredException.class, AccountAlreadyRegisteredException.class})
+    @ExceptionHandler({EmailAlreadyRegisteredException.class, AccountAlreadyRegisteredException.class,
+            ConcurrentProfileUpdateException.class, GoalHasBadgeException.class})
     ProblemDetail handleEmailAlreadyRegistered(RuntimeException exception) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
         problem.setTitle("Conflict");
         return problem;
     }
 
-    @ExceptionHandler({GoalNotFoundException.class, ActivityNotFoundException.class, UserNotFoundException.class})
+    @ExceptionHandler({GoalNotFoundException.class, ActivityNotFoundException.class, UserNotFoundException.class,
+            MediaNotFoundException.class})
     ProblemDetail handleNotFound(RuntimeException exception) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
         problem.setTitle("Not Found");

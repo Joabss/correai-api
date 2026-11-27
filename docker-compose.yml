@@ -1,22 +1,15 @@
 services:
   api:
-    image: correai-api
-    networks:
-      - infra
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: correai
+    build: .
+    restart: always
     environment:
-      SPRING_PROFILES_ACTIVE: dev
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/correai
       SPRING_DATASOURCE_USERNAME: dev
-      SPRING_DATASOURCE_PASSWORD: dev
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "8080:8080"
-    restart: unless-stopped
+      - "127.0.0.1:8080:8080"
 
 networks:
-  infra:
-    external: true
+  default:
     name: infra-local_default
+    external: true

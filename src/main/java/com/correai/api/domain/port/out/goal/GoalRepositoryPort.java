@@ -12,6 +12,9 @@ import java.util.UUID;
 public interface GoalRepositoryPort {
 
     Goal save(Goal goal);
+    Goal award(Goal goal);
+    void deactivateUnawarded(Goal goal);
+    List<Goal> findAwardedByUserId(UUID userId);
 
     List<Goal> findActiveByUserId(UUID userId);
 
