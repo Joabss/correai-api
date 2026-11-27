@@ -1,9 +1,21 @@
 package com.correai.api.config;
 
-import com.correai.api.application.activity.ActivityApplicationService;
+import com.correai.api.application.challenge.ChallengeActivityEvaluationService;
 import com.correai.api.application.achievement.AchievementApplicationService;
 import com.correai.api.application.common.StreakCalculator;
 import com.correai.api.application.goal.GoalApplicationService;
+import com.correai.api.application.group.GroupApplicationService;
+import com.correai.api.application.badge.BadgeTemplateApplicationService;
+import com.correai.api.domain.port.out.challenge.ChallengeRepositoryPort;
+import com.correai.api.domain.port.out.challenge.ChallengeParticipationRepositoryPort;
+import com.correai.api.domain.port.in.badge.BadgeTemplatesUseCase;
+import com.correai.api.domain.port.out.badge.BadgeTemplateRepositoryPort;
+import com.correai.api.domain.port.in.admin.AdminUseCase;
+import com.correai.api.application.admin.AdminApplicationService;
+import com.correai.api.domain.port.out.admin.AdminRepositoryPort;
+import com.correai.api.application.friendship.FriendshipApplicationService;
+import com.correai.api.domain.port.out.friendship.FriendshipRepositoryPort;
+import com.correai.api.domain.port.out.group.GroupRepositoryPort;
 import com.correai.api.application.stats.StatsApplicationService;
 import com.correai.api.application.stats.PersonalRecordApplicationService;
 import com.correai.api.application.auth.AuthApplicationService;
@@ -42,10 +54,28 @@ public class BeanConfig {
     }
 
     @Bean
-    public ActivityApplicationService activityApplicationService(
+    public TransactionalActivityApplicationService activityApplicationService(
             ActivityRepositoryPort repository, StreakCalculator streakCalculator, Clock clock,
-            EvaluateGoalsUseCase goals, AchievementsUseCase achievements) {
-        return new ActivityApplicationService(repository, streakCalculator, clock, goals, achievements);
+            EvaluateGoalsUseCase goals, AchievementsUseCase achievements,
+            ChallengeActivityEvaluationService challengeEvaluation) {
+        return new TransactionalActivityApplicationService(repository, streakCalculator, clock, goals, achievements,
+                challengeEvaluation);
+    }
+
+    @Bean
+    public ChallengeActivityEvaluationService challengeActivityEvaluationService(
+            ChallengeParticipationRepositoryPort participations, ChallengeRepositoryPort challenges,
+            ActivityRepositoryPort activities, Clock clock) {
+        return new ChallengeActivityEvaluationService(participations, challenges, activities, clock);
+    }
+
+    @Bean
+    public TransactionalChallengesApplicationService challengesApplicationService(
+            ChallengeRepositoryPort challenges, ChallengeParticipationRepositoryPort participations,
+            FriendshipRepositoryPort friendships, GroupRepositoryPort groups, ActivityRepositoryPort activities,
+            ChallengeActivityEvaluationService evaluation, BadgeTemplatesUseCase badges, Clock clock) {
+        return new TransactionalChallengesApplicationService(challenges, participations, friendships, groups,
+                activities, evaluation, badges, clock);
     }
 
     @Bean
@@ -72,6 +102,35 @@ public class BeanConfig {
     public GoalApplicationService goalApplicationService(
             GoalRepositoryPort goalRepository, ActivityRepositoryPort activityRepository, Clock clock) {
         return new GoalApplicationService(goalRepository, activityRepository, clock);
+    }
+
+    @Bean
+    public GroupApplicationService groupApplicationService(GroupRepositoryPort groups, Clock clock) {
+        return new GroupApplicationService(groups, clock);
+    }
+
+    @Bean
+    public AdminApplicationService adminApplicationService(AdminRepositoryPort admins, Clock clock) {
+        return new AdminApplicationService(admins, clock);
+    }
+
+    @Bean
+    public BadgeTemplateApplicationService badgeTemplateApplicationService(
+            BadgeTemplateRepositoryPort templates, AdminUseCase admins, Clock clock) {
+        return new BadgeTemplateApplicationService(templates, admins, clock);
+    }
+
+    @Bean
+    public TransactionalChallengeDraftApplicationService challengeDraftApplicationService(
+            ChallengeRepositoryPort challenges, GroupRepositoryPort groups, BadgeTemplatesUseCase badges,
+            AdminUseCase admins, AdminRepositoryPort adminRepository, Clock clock) {
+        return new TransactionalChallengeDraftApplicationService(challenges, groups, badges, admins, adminRepository,
+                clock);
+    }
+
+    @Bean
+    public FriendshipApplicationService friendshipApplicationService(FriendshipRepositoryPort friendships, Clock clock) {
+        return new FriendshipApplicationService(friendships, clock);
     }
 
     @Bean

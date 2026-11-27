@@ -10,6 +10,14 @@ import com.correai.api.domain.model.goal.GoalHasBadgeException;
 import com.correai.api.domain.model.user.UserNotFoundException;
 import com.correai.api.domain.model.user.ConcurrentProfileUpdateException;
 import com.correai.api.domain.model.media.MediaNotFoundException;
+import com.correai.api.domain.model.group.GroupNotFoundException;
+import com.correai.api.domain.model.friendship.FriendshipNotFoundException;
+import com.correai.api.domain.model.friendship.FriendshipConflictException;
+import com.correai.api.domain.model.admin.AdminAccessDeniedException;
+import com.correai.api.domain.model.admin.AdminConflictException;
+import com.correai.api.domain.model.badge.BadgeTemplateNotFoundException;
+import com.correai.api.domain.model.challenge.ChallengeConflictException;
+import com.correai.api.domain.model.challenge.ChallengeNotFoundException;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +59,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler({EmailAlreadyRegisteredException.class, AccountAlreadyRegisteredException.class,
-            ConcurrentProfileUpdateException.class, GoalHasBadgeException.class})
+            ConcurrentProfileUpdateException.class, GoalHasBadgeException.class, FriendshipConflictException.class,
+            AdminConflictException.class, ChallengeConflictException.class})
     ProblemDetail handleEmailAlreadyRegistered(RuntimeException exception) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
         problem.setTitle("Conflict");
@@ -59,10 +68,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler({GoalNotFoundException.class, ActivityNotFoundException.class, UserNotFoundException.class,
-            MediaNotFoundException.class})
+            MediaNotFoundException.class, GroupNotFoundException.class, FriendshipNotFoundException.class,
+            BadgeTemplateNotFoundException.class, ChallengeNotFoundException.class})
     ProblemDetail handleNotFound(RuntimeException exception) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
         problem.setTitle("Not Found");
+        return problem;
+    }
+
+    @ExceptionHandler(AdminAccessDeniedException.class)
+    ProblemDetail handleAdminAccessDenied(AdminAccessDeniedException exception) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, exception.getMessage());
+        problem.setTitle("Forbidden");
         return problem;
     }
 

@@ -72,7 +72,8 @@ implementam essas portas. O dominio nao conhece Spring, HTTP ou JPA.
 `POST /auth/anonymous` cria um `User` anônimo e devolve `{accessToken, tokenType, userId, expiresAt}`. `POST /users` cadastra usuário com e-mail (único, normalizado em minúsculas) e senha (8–72 caracteres, armazenada como hash BCrypt) e `POST /auth/login` autentica por e-mail e senha (`401` para credenciais inválidas; `409` em `POST /users` se o e-mail já existir). O token é emitido e verificado pelo adapter `JwtTokenAdapter` (porta `TokenPort`, biblioteca Nimbus JOSE + JWT). Todas as respostas de sessão incluem também um `refreshToken` de uso único (30 dias, guardado só como hash SHA-256 na tabela `one_time_tokens`); `POST /auth/refresh` o rotaciona. A recuperação de senha usa token de 1 hora; ao confirmar, todos os refresh tokens do usuário são revogados. O login executa uma comparação BCrypt mesmo para e-mails inexistentes, reduzindo a enumeração de contas por tempo de resposta. O envio de e-mail do reset ainda não existe: em dev, defina `app.security.password-reset.log-token=true` para ver o token no log. Limitações conhecidas estão em `docs/STATUS_DO_PROJETO.md`.
 
 Um `HandlerInterceptor` (`UserContextInterceptor`) intercepta as requisições para
-`/activities/**`, `/stats/**`, `/goals/**`, `/achievements/**` e `/users/me/**`:
+`/activities/**`, `/stats/**`, `/goals/**`, `/achievements/**`, `/groups/**`,
+`/friendships/**`, `/admin/**`, `/badge-templates/**`, `/challenge-drafts/**` e `/users/me/**`:
 
 1. Exige o header `Authorization: Bearer <token>`.
 2. Valida assinatura e expiração do token e confirma que o usuário ainda existe.
@@ -125,6 +126,34 @@ Os erros seguem o formato RFC 7807 (`ProblemDetail`, `application/problem+json`)
 | GET    | `/goals/badges`     | Lista conquistas permanentes do usuário |
 | DELETE | `/goals/{id}`       | Desativa desafio não concluído; após conclusão retorna `409` |
 | GET    | `/achievements/me`  | Catálogo completo de badges de conquistas, com estado desbloqueado/bloqueado |
+| POST   | `/groups`           | Cria grupo aberto e adiciona seu criador |
+| GET    | `/groups?name=...`  | Pesquisa grupos pelo nome, com paginação |
+| PUT    | `/groups/{id}/membership` | Adere imediatamente ao grupo |
+| DELETE | `/groups/{id}/membership` | Sai do grupo |
+| GET    | `/friendships` | Lista amigos e solicitações paginados |
+| PUT    | `/friendships/{userId}/request` | Solicita amizade |
+| PUT    | `/friendships/{userId}/accept` | Aceita solicitação recebida |
+| DELETE | `/friendships/{userId}` | Remove amizade ou cancela solicitação |
+| GET    | `/friendships/blocks` | Lista usuários bloqueados pelo usuário |
+| PUT    | `/friendships/{userId}/block` | Bloqueia usuário e remove amizade ou solicitação |
+| DELETE | `/friendships/{userId}/block` | Desbloqueia usuário |
+| GET    | `/admin/role` | Consulta o papel do próprio usuário (`USER` ou `ADMIN`) |
+| POST   | `/admin/bootstrap` | Inicializa o primeiro administrador, mediante segredo |
+| PUT    | `/admin/users/{userId}` | Administrador concede acesso a uma conta cadastrada |
+| DELETE | `/admin/users/{userId}` | Administrador revoga acesso administrativo |
+| POST   | `/badge-templates` | Administrador cria um modelo de badge |
+| GET    | `/badge-templates` | Lista modelos de badge com paginação |
+| GET    | `/badge-templates/{id}` | Consulta um modelo de badge |
+| GET    | `/badge-templates/{id}/image` | Imagem SVG do modelo |
+| POST   | `/challenge-drafts` | Cria rascunho privado de desafio compartilhado |
+| GET    | `/challenge-drafts` | Lista rascunhos próprios, com paginação |
+| GET    | `/challenge-drafts/{id}` | Consulta rascunho próprio |
+| PUT    | `/challenge-drafts/{id}` | Edita rascunho próprio |
+| POST   | `/challenge-drafts/{id}/publish` | Publica o rascunho, tornando-o imutável |
+| GET    | `/challenges` | Lista desafios publicados visíveis, com paginação |
+| GET    | `/challenges/{id}` | Consulta desafio visível e participação própria |
+| PUT    | `/challenges/{id}/participation` | Adere ao desafio visível de forma idempotente |
+| GET    | `/challenge-badges/me` | Lista badges conquistadas em desafios, com paginação |
 | GET    | `/actuator/health`  | Health check da aplicação                    |
 | GET    | `/swagger-ui.html`  | Documentação interativa (OpenAPI em `/v3/api-docs`) |
 
@@ -161,6 +190,116 @@ arquivo original em `GET /activities/{id}/route`; o aplicativo é responsável
 por interpretá-lo e desenhá-lo no mapa. Os arquivos são armazenados no
 PostgreSQL e retornados sem cache; ausentes ou pertencentes a outra pessoa
 retornam `404`. Ao excluir uma atividade, seus arquivos são excluídos.
+
+### Administração
+
+Novas contas e usuários anônimos são `USER`; o cadastro público não concede privilégios.
+Para inicializar o primeiro `ADMIN`, crie e autentique uma conta com e-mail e senha, configure
+`ADMIN_BOOTSTRAP_SECRET` no servidor com um segredo aleatório de pelo menos 32 bytes e envie
+`POST /admin/bootstrap` com o JWT dessa conta e o segredo no header `X-Admin-Bootstrap-Secret`.
+Sem segredo configurado ou com menos de 32 bytes, a operação fica desabilitada. O bootstrap
+só funciona uma vez por banco, inclusive sob requisições concorrentes. Após sua conclusão,
+remova o segredo da configuração e reinicie a aplicação de forma controlada.
+
+Um administrador pode conceder ou revogar o papel de outras contas cadastradas pelas rotas
+`/admin/users/{userId}`. Contas anônimas não podem ser administradoras; a revogação do último
+administrador retorna `409`. As alterações são verificadas no banco a cada operação, mesmo
+para JWTs antigos. Ações bem-sucedidas de bootstrap, concessão e revogação são registradas
+em `admin_audit`, sem segredos; a proteção contra tentativas abusivas ainda não está
+implementada. Use HTTPS e não armazene o segredo na coleção Postman nem em logs. No Docker
+Compose, a variável é repassada ao contêiner; defina-a no ambiente sem versioná-la.
+
+### Modelos de badges
+
+Administradores criam modelos imutáveis com nome, descrição, ícone e cor RGB hexadecimal:
+
+```json
+{"name":"Caminhante","description":"Uma conquista de caminhada","icon":"FOOTPRINT","color":"#059669"}
+```
+
+Os ícones disponíveis são `FOOTPRINT` e `FIVE_K`. A API gera o SVG com moldura fixa inspirada
+nos assets existentes; não aceita upload de SVG nem inclui texto informado pelo usuário na
+imagem. O SVG é servido com `nosniff` e política de conteúdo restritiva. Usuários autenticados
+podem listar e consultar os modelos criados por administradores; o catálogo começa vazio.
+Os modelos ainda não estão vinculados aos desafios e o app ainda não os consome.
+As 19 badges fixas de `/achievements/me` não são alteradas.
+
+### Rascunhos de desafios compartilhados
+
+O criador pode salvar e revisar um rascunho privado:
+
+```json
+{"name":"50 km","description":"Caminhar 50 km","audience":"FRIENDS","metric":"DISTANCE_KM",
+ "target":50,"startDate":"2026-06-01","endDate":"2026-06-30","timeZone":"America/Sao_Paulo",
+ "badgeTemplateId":"00000000-0000-4000-8000-000000000001"}
+```
+
+Substitua as datas do exemplo por um período ainda aberto.
+
+`audience` aceita `FRIENDS`, `GROUP` ou `GLOBAL`; grupo exige `groupId` e participação do
+criador, e público global exige administrador. A badge deve ser um modelo existente.
+`metric` aceita `DISTANCE_KM` ou `ACTIVITIES`; o alvo deve ser positivo e, para atividades,
+inteiro. Datas incluem o dia final no fuso IANA indicado. Consulte apenas seus próprios
+rascunhos; os de outro usuário retornam `404`. Edições simultâneas que partem do mesmo
+estado são protegidas contra sobrescrita: uma delas retorna `409` se o rascunho mudar
+durante o processamento. Essa proteção não detecta formulários desatualizados entre
+requisições separadas; consulte o rascunho novamente antes de editá-lo.
+
+Após conferir o rascunho, publique-o com `POST /challenge-drafts/{id}/publish`. É necessário
+que o criador ainda seja administrador para publicar globalmente ou membro do grupo para
+publicar nele. A publicação é definitiva: um desafio publicado não pode ser editado nem
+publicado novamente. Um desafio encerrado não pode ser publicado.
+
+`GET /challenges` lista desafios publicados: globais, de amizades aceitas e de grupos dos
+quais o usuário participa, além dos próprios. Bloqueio em qualquer direção oculta os desafios
+do outro usuário. `GET /challenges/{id}` retorna `{ "challenge": ..., "participation": ... }`;
+`participation` é `null` antes da adesão. Detalhes de desafios invisíveis retornam `404`.
+
+Para participar, chame `PUT /challenges/{id}/participation` entre o início e o fim do período,
+no fuso do desafio. A repetição da adesão é idempotente. Atividades realizadas e cadastradas
+no período contam desde o início, inclusive as anteriores à adesão. Atividades futuras
+passam a contar quando seu horário chega; atividades cadastradas após o encerramento não
+contam, assim como as cadastradas antes do início. Registros legados sem data de cadastro são excluídos, pois não é possível verificar
+quando foram registrados. Criação, edição e exclusão de atividades atualizam o progresso
+transacionalmente; uma mutação cuja avaliação terminar após o fim do período não altera
+o resultado final.
+
+Ao atingir o alvo, a badge é permanente e permanece em `GET /challenge-badges/me`, mesmo
+que a amizade termine, haja bloqueio ou o usuário saia do grupo. Nessas situações, o acesso
+ao desafio e ao progresso é perdido; a participação não é cancelada automaticamente.
+Enquanto a participação existir, atividades elegíveis continuam contando mesmo sem acesso
+ao desafio, e a badge poderá ser conquistada.
+O resultado também é atualizado na consulta e antes de mudanças de atividade, sem depender
+de um agendador. `achievedAt` indica quando a conquista foi reconhecida pela API: pode ser
+posterior ao encerramento se só então a participação for avaliada. As metas pessoais em
+`/goals` e as badges fixas em `/achievements/me` continuam independentes.
+O cálculo percorre o histórico de atividades para cada participação pendente; avalie o custo
+com volumes reais antes de operar em escala.
+
+### Grupos
+
+Grupos são abertos a usuários autenticados, inclusive anônimos. Envie `{"name":"Corredores"}` para
+criar um grupo; o nome tem no máximo 100 caracteres. A busca exige `name` não vazio e aceita
+`page` e `size` (padrão 0 e 20, máximo 100). A resposta inclui `member`, indicando se o
+usuário autenticado participa. Entrar e sair são idempotentes (`204`); grupo inexistente
+retorna `404`. O criador também pode sair, sem excluir o grupo. Desafios de grupo e
+administração de grupos ainda não estão implementados.
+
+### Amizades
+
+Qualquer usuário autenticado, inclusive anônimo, pode solicitar amizade pelo UUID do outro
+usuário. O UUID próprio aparece em `GET /users/me`; não existe busca de usuários nesta versão.
+Somente quem recebeu a solicitação pode aceitá-la. `GET /friendships` retorna entradas com
+`userId`, `state` (`PENDING` ou `ACCEPTED`), `incoming` e `createdAt`, com `page` e `size`.
+Solicitações repetidas do mesmo remetente são idempotentes; uma solicitação cruzada retorna
+`409` e precisa ser aceita explicitamente. Remover também cancela solicitações.
+
+Bloquear remove a relação, impede novas solicitações e aceites em ambos os sentidos e não
+revela o bloqueio à outra pessoa: a interação retorna `404`, como para usuário inexistente.
+Cada usuário controla apenas seus próprios bloqueios. Desbloquear não restaura a amizade;
+se o outro usuário também bloqueou, esse bloqueio continua válido. Bloquear, desbloquear e
+remover são idempotentes para usuários existentes. Não é permitido interagir consigo mesmo.
+Desafios entre amigos e integração mobile ainda estão pendentes.
 
 ### Desafios, conquistas e recordes pessoais
 
@@ -345,7 +484,7 @@ Variável opcional `CORS_ALLOWED_ORIGINS` (lista separada por vírgulas; padrão
 
 ### Migrações de banco (Flyway)
 
-O esquema é versionado em `src/main/resources/db/migration` (`V1__init_schema.sql` … `V10__create_user_badges.sql`). Bancos já existentes criados pelo `ddl-auto` são adotados automaticamente (`baseline-on-migrate`). Alterações de esquema devem virar novas migrações `V<n>__descricao.sql`. Os testes usam H2 com `create-drop` e o Flyway desabilitado.
+O esquema é versionado em `src/main/resources/db/migration` (`V1__init_schema.sql` … `V17__finalize_challenge_participations.sql`). Bancos já existentes criados pelo `ddl-auto` são adotados automaticamente (`baseline-on-migrate`). Alterações de esquema devem virar novas migrações `V<n>__descricao.sql`. Os testes usam H2 com `create-drop` e o Flyway desabilitado.
 
 ### Rodando com Docker Compose (recomendado)
 

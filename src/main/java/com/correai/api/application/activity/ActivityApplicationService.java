@@ -1,6 +1,7 @@
 package com.correai.api.application.activity;
 
 import com.correai.api.application.common.StreakCalculator;
+import com.correai.api.application.challenge.ChallengeActivityEvaluationService;
 import com.correai.api.domain.model.activity.Activity;
 import com.correai.api.domain.model.activity.ActivityNotFoundException;
 import com.correai.api.domain.port.in.activity.DeleteActivityUseCase;
@@ -32,18 +33,22 @@ public class ActivityApplicationService implements CreateActivityUseCase, ListAc
     private final Clock clock;
     private final EvaluateGoalsUseCase goals;
     private final AchievementsUseCase achievements;
+    private final ChallengeActivityEvaluationService challengeEvaluation;
 
     public ActivityApplicationService(ActivityRepositoryPort repository, StreakCalculator streakCalculator, Clock clock,
-                                      EvaluateGoalsUseCase goals, AchievementsUseCase achievements) {
+                                      EvaluateGoalsUseCase goals, AchievementsUseCase achievements,
+                                      ChallengeActivityEvaluationService challengeEvaluation) {
         this.repository = repository;
         this.streakCalculator = streakCalculator;
         this.clock = clock;
         this.goals = goals;
         this.achievements = achievements;
+        this.challengeEvaluation = challengeEvaluation;
     }
 
     @Override
     public ActivityCreationResult create(CreateActivityCommand command) {
+        var before = challengeEvaluation.begin(command.userId());
         OffsetDateTime startedAt = command.startedAt() != null
                 ? command.startedAt()
                 : OffsetDateTime.now(clock);
@@ -59,6 +64,7 @@ public class ActivityApplicationService implements CreateActivityUseCase, ListAc
         );
 
         Activity saved = repository.save(activity);
+        challengeEvaluation.complete(before);
         List<String> newBadges = goals.evaluate(command.userId()).stream().map(UUID::toString).toList();
         List<String> newAchievements = achievements.evaluate(command.userId()).stream()
                 .map(BadgeCode::code).toList();
@@ -81,19 +87,23 @@ public class ActivityApplicationService implements CreateActivityUseCase, ListAc
 
     @Override
     public void delete(UUID userId, UUID activityId) {
+        var before = challengeEvaluation.begin(userId);
         Activity activity = get(userId, activityId);
         goals.evaluate(userId);
         achievements.evaluate(userId);
         repository.delete(activity);
+        challengeEvaluation.complete(before);
     }
 
     @Override
     public Activity update(UpdateActivityCommand command) {
+        var before = challengeEvaluation.begin(command.userId());
         Activity activity = get(command.userId(), command.activityId());
         Activity updated = activity.update(command.type(), command.distanceKm(), command.durationSeconds(),
                 command.trainingType(), command.perceivedEffort(), command.notes());
         goals.evaluate(command.userId());
         Activity saved = repository.save(updated);
+        challengeEvaluation.complete(before);
         goals.evaluate(command.userId());
         achievements.evaluate(command.userId());
         return saved;

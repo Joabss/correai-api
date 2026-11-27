@@ -1,6 +1,7 @@
 package com.correai.api.application.activity;
 
 import com.correai.api.application.common.StreakCalculator;
+import com.correai.api.application.challenge.ChallengeActivityEvaluationService;
 import com.correai.api.domain.model.activity.Activity;
 import com.correai.api.domain.model.activity.ActivityType;
 import com.correai.api.domain.model.activity.PerceivedEffort;
@@ -44,6 +45,8 @@ class ActivityApplicationServiceTest {
     private EvaluateGoalsUseCase goals;
     @Mock
     private AchievementsUseCase achievements;
+    @Mock
+    private ChallengeActivityEvaluationService challengeEvaluation;
 
     private ActivityApplicationService service;
 
@@ -56,7 +59,7 @@ class ActivityApplicationServiceTest {
     void setUp() {
         clock = Clock.fixed(Instant.parse("2026-11-28T01:00:00Z"), ZoneId.of("America/Sao_Paulo"));
         service = new ActivityApplicationService(repository, new StreakCalculator(repository, clock), clock, goals,
-                achievements);
+                achievements, challengeEvaluation);
         userId = UUID.randomUUID();
         command = new CreateActivityCommand(userId, ActivityType.RUN, 10.0, 3600, TrainingType.EASY,
                 PerceivedEffort.OK, "Test run", null);

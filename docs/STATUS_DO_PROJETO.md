@@ -42,11 +42,16 @@ recordes GPS e badges de conquistas ja tem implementacao no backend.
 | Remocao de fotos da atividade | Implementada em 2026-11-27: `DELETE /activities/{id}/photos/{photoId}`; apenas proprietario, inclui foto legada, idempotente e sem alterar percurso |
 | Erros padronizados (ProblemDetail), CORS e OpenAPI | Implementados |
 | Refresh token, recuperacao de senha e conversao de anonimo em conta | Implementados (`POST /auth/refresh`, `POST /auth/password-reset/request|confirm`, `POST /users/me/account`; tokens de uso unico em `one_time_tokens`, migracao `V5`); login com protecao contra enumeracao por tempo de resposta |
-| Migracoes Flyway | Implementadas (`V1` a `V10`; inicio da atividade em `V7`/`V8`, conquistas de desafio em `V9`, catalogo de badges em `V10`) |
+| Migracoes Flyway | Implementadas (`V1` a `V17`; grupos em `V11`, amizades em `V12`, administradores em `V13`, modelos de badge em `V14`, rascunhos em `V15`, participacoes em `V16` e finalizacao em `V17`) |
 | `GET /activities/{id}` | Implementado |
 | Excluir atividade (`DELETE /activities/{id}`) | Implementado |
 | Editar atividade | Implementado em 2026-11-27 (`PUT /activities/{id}`): apenas o proprietario; recalcula pace e preserva inicio, fotos, percurso e identificador |
 | Metas (`/goals`): km, atividades e pace, semanal/mensal, varias ativas | Implementado |
+| Grupos | Criacao, busca paginada, adesao imediata e saida; desafios visiveis aos membros |
+| Amizades | Solicitacao por UUID, aceite, remocao e bloqueio; desafios entre amizades aceitas; busca de usuarios ainda pendente |
+| Administradores | Bootstrap unico por segredo, concessao e revogacao por administrador, auditoria das alteracoes; nao ha rate limiting |
+| Modelos de badges | Criacao por administrador com cor e dois icones fixos; SVG gerado pela API e vinculado aos desafios; integracao do app pendente |
+| Desafios compartilhados | Rascunho, publicacao imutavel, visibilidade por publico, adesao, progresso e badges permanentes implementados na API; integracao do app pendente |
 | Desafios com conquistas permanentes | Implementados em 2026-11-27: snapshot em `goals` (`V9`), `GET /goals/badges`; exclusao protegida com `409` e conquistas preservadas apos editar/apagar atividades. Imagem PNG de medalha removida. |
 | PRs por trecho GPS | Implementados em 2026-11-27: `GET /stats/records`, top 3 por 5 km/10 km/21,0975 km/42,195 km, qualquer tipo de atividade; um melhor trecho por atividade, sem atravessar pausas; GPX antigo sem horario nao participa |
 | `GET /stats/evolution` | Implementado (semanal, `weeks` de 1 a 52) |

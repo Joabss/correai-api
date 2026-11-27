@@ -38,7 +38,9 @@ class WebConfigTest {
         config.addInterceptors(registry);
 
         verify(registry).addInterceptor(interceptor);
-        verify(registration).addPathPatterns("/activities/**", "/stats/**", "/goals/**", "/achievements/**",
+        verify(registration).addPathPatterns("/activities/**", "/stats/**", "/goals/**", "/achievements/**", "/groups/**",
+                "/friendships/**", "/admin/**", "/badge-templates/**", "/challenge-drafts/**",
+                "/challenges/**", "/challenge-badges/**",
                 "/users/me", "/users/me/**");
         verify(registration).excludePathPatterns("/actuator/**", "/error");
     }
@@ -68,4 +70,3 @@ class WebConfigTest {
                 corsRegistry.configurations().get("/**").getAllowedOrigins());
     }
 }
-

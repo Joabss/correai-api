@@ -54,6 +54,42 @@
       "description": "UUID de uma meta (preenchido ao criar a meta de distância)."
     },
     {
+      "key": "groupId",
+      "value": "",
+      "type": "string",
+      "description": "UUID de um grupo, preenchido ao criar um grupo."
+    },
+    {
+      "key": "friendUserId",
+      "value": "",
+      "type": "string",
+      "description": "UUID do outro usuário obtido com seu consentimento."
+    },
+    {
+      "key": "badgeTemplateId",
+      "value": "",
+      "type": "string",
+      "description": "UUID de um modelo de badge criado por administrador."
+    },
+    {
+      "key": "challengeDraftId",
+      "value": "",
+      "type": "string",
+      "description": "UUID de um rascunho ou desafio visível."
+    },
+    {
+      "key": "challengeStartDate",
+      "value": "",
+      "type": "string",
+      "description": "Data de início do desafio, no formato YYYY-MM-DD."
+    },
+    {
+      "key": "challengeEndDate",
+      "value": "",
+      "type": "string",
+      "description": "Data final inclusiva do desafio, no formato YYYY-MM-DD."
+    },
+    {
       "key": "activityId",
       "value": "",
       "type": "string",
@@ -61,6 +97,197 @@
     }
   ],
   "item": [
+    {
+      "name": "Rascunhos de desafios",
+      "item": [
+        {
+          "name": "Criar rascunho",
+          "event": [{"listen":"prerequest","script":{"exec":["const now = Date.now();","if (!pm.collectionVariables.get('challengeStartDate')) pm.collectionVariables.set('challengeStartDate', new Date(now - 86400000).toISOString().slice(0, 10));","if (!pm.collectionVariables.get('challengeEndDate')) pm.collectionVariables.set('challengeEndDate', new Date(now + 2592000000).toISOString().slice(0, 10));"],"type":"text/javascript"}},{"listen":"test","script":{"exec":["if (pm.response.code === 201) pm.collectionVariables.set('challengeDraftId', pm.response.json().id);"],"type":"text/javascript"}}],
+          "request": {"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"body":{"mode":"raw","raw":"{\"name\":\"50 km\",\"description\":\"Caminhar 50 km\",\"audience\":\"FRIENDS\",\"metric\":\"DISTANCE_KM\",\"target\":50,\"startDate\":\"{{challengeStartDate}}\",\"endDate\":\"{{challengeEndDate}}\",\"timeZone\":\"America/Sao_Paulo\",\"badgeTemplateId\":\"{{badgeTemplateId}}\"}"},"url":{"raw":"{{baseUrl}}/challenge-drafts","host":["{{baseUrl}}"],"path":["challenge-drafts"]}},
+          "response": []
+        },
+        {
+          "name": "Listar meus rascunhos",
+          "request": {"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/challenge-drafts?page=0&size=20","host":["{{baseUrl}}"],"path":["challenge-drafts"],"query":[{"key":"page","value":"0"},{"key":"size","value":"20"}]}},
+          "response": []
+        },
+        {
+          "name": "Consultar rascunho",
+          "request": {"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/challenge-drafts/{{challengeDraftId}}","host":["{{baseUrl}}"],"path":["challenge-drafts","{{challengeDraftId}}"]}},
+          "response": []
+        },
+        {
+          "name": "Editar rascunho",
+          "request": {"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"body":{"mode":"raw","raw":"{\"name\":\"50 km\",\"description\":\"Caminhar 50 km\",\"audience\":\"FRIENDS\",\"metric\":\"DISTANCE_KM\",\"target\":50,\"startDate\":\"{{challengeStartDate}}\",\"endDate\":\"{{challengeEndDate}}\",\"timeZone\":\"America/Sao_Paulo\",\"badgeTemplateId\":\"{{badgeTemplateId}}\"}"},"url":{"raw":"{{baseUrl}}/challenge-drafts/{{challengeDraftId}}","host":["{{baseUrl}}"],"path":["challenge-drafts","{{challengeDraftId}}"]}},
+          "response": []
+        },
+        {
+          "name": "Publicar rascunho",
+          "request": {"method":"POST","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/challenge-drafts/{{challengeDraftId}}/publish","host":["{{baseUrl}}"],"path":["challenge-drafts","{{challengeDraftId}}","publish"]}},
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Desafios compartilhados",
+      "item": [
+        {
+          "name": "Listar desafios visíveis",
+          "request": {"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/challenges?page=0&size=20","host":["{{baseUrl}}"],"path":["challenges"],"query":[{"key":"page","value":"0"},{"key":"size","value":"20"}]}},
+          "response": []
+        },
+        {
+          "name": "Consultar desafio",
+          "request": {"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/challenges/{{challengeDraftId}}","host":["{{baseUrl}}"],"path":["challenges","{{challengeDraftId}}"]}},
+          "response": []
+        },
+        {
+          "name": "Aderir ao desafio",
+          "request": {"method":"PUT","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/challenges/{{challengeDraftId}}/participation","host":["{{baseUrl}}"],"path":["challenges","{{challengeDraftId}}","participation"]}},
+          "response": []
+        },
+        {
+          "name": "Minhas badges de desafios",
+          "request": {"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/challenge-badges/me?page=0&size=20","host":["{{baseUrl}}"],"path":["challenge-badges","me"],"query":[{"key":"page","value":"0"},{"key":"size","value":"20"}]}},
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Modelos de badges",
+      "item": [
+        {
+          "name": "Criar modelo",
+          "event": [{"listen":"test","script":{"exec":["if (pm.response.code === 201) pm.collectionVariables.set('badgeTemplateId', pm.response.json().id);"],"type":"text/javascript"}}],
+          "request": {"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"body":{"mode":"raw","raw":"{\"name\":\"Caminhante\",\"description\":\"Uma conquista de caminhada\",\"icon\":\"FOOTPRINT\",\"color\":\"#059669\"}"},"url":{"raw":"{{baseUrl}}/badge-templates","host":["{{baseUrl}}"],"path":["badge-templates"]}},
+          "response": []
+        },
+        {
+          "name": "Listar modelos",
+          "request": {"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/badge-templates?page=0&size=20","host":["{{baseUrl}}"],"path":["badge-templates"],"query":[{"key":"page","value":"0"},{"key":"size","value":"20"}]}},
+          "response": []
+        },
+        {
+          "name": "Consultar modelo",
+          "request": {"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/badge-templates/{{badgeTemplateId}}","host":["{{baseUrl}}"],"path":["badge-templates","{{badgeTemplateId}}"]}},
+          "response": []
+        },
+        {
+          "name": "Imagem do modelo",
+          "request": {"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/badge-templates/{{badgeTemplateId}}/image","host":["{{baseUrl}}"],"path":["badge-templates","{{badgeTemplateId}}","image"]}},
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Administradores",
+      "item": [
+        {
+          "name": "Consultar meu papel",
+          "request": {"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/admin/role","host":["{{baseUrl}}"],"path":["admin","role"]}},
+          "response": []
+        },
+        {
+          "name": "Inicializar primeiro administrador",
+          "request": {"method":"POST","header":[{"key":"X-Admin-Bootstrap-Secret","value":"{{adminBootstrapSecret}}"}],"auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/admin/bootstrap","host":["{{baseUrl}}"],"path":["admin","bootstrap"]},"description":"Use uma conta cadastrada e forneça o segredo temporário por mecanismo seguro; não salve seu valor na coleção."},
+          "response": []
+        },
+        {
+          "name": "Conceder administrador",
+          "request": {"method":"PUT","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/admin/users/{{friendUserId}}","host":["{{baseUrl}}"],"path":["admin","users","{{friendUserId}}"]}},
+          "response": []
+        },
+        {
+          "name": "Revogar administrador",
+          "request": {"method":"DELETE","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/admin/users/{{friendUserId}}","host":["{{baseUrl}}"],"path":["admin","users","{{friendUserId}}"]}},
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Amizades",
+      "item": [
+        {
+          "name": "Listar amizades e solicitações",
+          "request": {"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/friendships?page=0&size=20","host":["{{baseUrl}}"],"path":["friendships"],"query":[{"key":"page","value":"0"},{"key":"size","value":"20"}]}},
+          "response": []
+        },
+        {
+          "name": "Solicitar amizade",
+          "request": {"method":"PUT","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/friendships/{{friendUserId}}/request","host":["{{baseUrl}}"],"path":["friendships","{{friendUserId}}","request"]}},
+          "response": []
+        },
+        {
+          "name": "Aceitar solicitação",
+          "request": {"method":"PUT","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/friendships/{{friendUserId}}/accept","host":["{{baseUrl}}"],"path":["friendships","{{friendUserId}}","accept"]}},
+          "response": []
+        },
+        {
+          "name": "Remover amizade ou solicitação",
+          "request": {"method":"DELETE","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/friendships/{{friendUserId}}","host":["{{baseUrl}}"],"path":["friendships","{{friendUserId}}"]}},
+          "response": []
+        },
+        {
+          "name": "Listar bloqueados",
+          "request": {"method":"GET","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/friendships/blocks","host":["{{baseUrl}}"],"path":["friendships","blocks"]}},
+          "response": []
+        },
+        {
+          "name": "Bloquear usuário",
+          "request": {"method":"PUT","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/friendships/{{friendUserId}}/block","host":["{{baseUrl}}"],"path":["friendships","{{friendUserId}}","block"]}},
+          "response": []
+        },
+        {
+          "name": "Desbloquear usuário",
+          "request": {"method":"DELETE","auth":{"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},"url":{"raw":"{{baseUrl}}/friendships/{{friendUserId}}/block","host":["{{baseUrl}}"],"path":["friendships","{{friendUserId}}","block"]}},
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Grupos",
+      "item": [
+        {
+          "name": "Criar grupo",
+          "event": [{"listen":"test","script":{"exec":["if (pm.response.code === 201) pm.collectionVariables.set('groupId', pm.response.json().id);"],"type":"text/javascript"}}],
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "auth": {"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},
+            "body": {"mode":"raw","raw":"{\"name\":\"Corredores\"}"},
+            "url": {"raw":"{{baseUrl}}/groups","host":["{{baseUrl}}"],"path":["groups"]}
+          },
+          "response": []
+        },
+        {
+          "name": "Pesquisar grupos",
+          "request": {
+            "method": "GET",
+            "auth": {"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},
+            "url": {"raw":"{{baseUrl}}/groups?name=Corredores&page=0&size=20","host":["{{baseUrl}}"],"path":["groups"],"query":[{"key":"name","value":"Corredores"},{"key":"page","value":"0"},{"key":"size","value":"20"}]}
+          },
+          "response": []
+        },
+        {
+          "name": "Entrar no grupo",
+          "request": {
+            "method": "PUT",
+            "auth": {"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},
+            "url": {"raw":"{{baseUrl}}/groups/{{groupId}}/membership","host":["{{baseUrl}}"],"path":["groups","{{groupId}}","membership"]}
+          },
+          "response": []
+        },
+        {
+          "name": "Sair do grupo",
+          "request": {
+            "method": "DELETE",
+            "auth": {"type":"bearer","bearer":[{"key":"token","value":"{{accessToken}}","type":"string"}]},
+            "url": {"raw":"{{baseUrl}}/groups/{{groupId}}/membership","host":["{{baseUrl}}"],"path":["groups","{{groupId}}","membership"]}
+          },
+          "response": []
+        }
+      ]
+    },
     {
       "name": "Auth",
       "item": [

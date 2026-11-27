@@ -24,7 +24,9 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(interceptor)
-                .addPathPatterns("/activities/**", "/stats/**", "/goals/**", "/achievements/**",
+                .addPathPatterns("/activities/**", "/stats/**", "/goals/**", "/achievements/**", "/groups/**",
+                        "/friendships/**", "/admin/**", "/badge-templates/**", "/challenge-drafts/**",
+                        "/challenges/**", "/challenge-badges/**",
                         "/users/me", "/users/me/**")
                 .excludePathPatterns(
                         "/actuator/**",
@@ -40,7 +42,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addMapping("/**")
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("Authorization", "Content-Type")
+                .allowedHeaders("Authorization", "Content-Type", "X-Admin-Bootstrap-Secret")
                 .maxAge(3600);
     }
 }
