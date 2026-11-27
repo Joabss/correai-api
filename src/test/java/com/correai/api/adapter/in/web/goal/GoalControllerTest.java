@@ -10,6 +10,8 @@ import com.correai.api.domain.port.in.goal.CreateGoalUseCase;
 import com.correai.api.domain.port.in.goal.DeactivateGoalUseCase;
 import com.correai.api.domain.port.in.goal.GoalProgress;
 import com.correai.api.domain.port.in.goal.ListGoalsUseCase;
+import com.correai.api.domain.port.in.goal.GoalBadgesUseCase;
+import com.correai.api.domain.model.goal.GoalHasBadgeException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -44,6 +46,8 @@ class GoalControllerTest {
 
     @MockitoBean
     private DeactivateGoalUseCase deactivateGoalUseCase;
+    @MockitoBean
+    private GoalBadgesUseCase goalBadgesUseCase;
 
     private final UUID userId = UUID.randomUUID();
 
@@ -110,5 +114,34 @@ class GoalControllerTest {
 
         mockMvc.perform(delete("/goals/{id}", goalId).requestAttr("userId", userId))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deletingAwardedChallengeReturnsConflict() throws Exception {
+        UUID id = UUID.randomUUID();
+        doThrow(new GoalHasBadgeException()).when(deactivateGoalUseCase).deactivate(userId, id);
+        mockMvc.perform(delete("/goals/{id}", id).requestAttr("userId", userId))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void listsPermanentBadgesAndRendersPrivatePng() throws Exception {
+        Goal goal = Goal.reconstruct(UUID.randomUUID(), userId, GoalType.ACTIVITIES,
+                GoalPeriod.WEEKLY, 1, true, Instant.now())
+                .achieve(Instant.parse("2026-09-30T12:00:00Z"), LocalDate.of(2026, 9, 28), 1);
+        when(goalBadgesUseCase.listBadges(userId)).thenReturn(List.of(goal));
+        when(goalBadgesUseCase.getBadge(userId, goal.id())).thenReturn(goal);
+        mockMvc.perform(get("/goals/badges").requestAttr("userId", userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].achieved").value(true))
+                .andExpect(jsonPath("$[0].achievedAt").value("2026-09-30T12:00:00Z"));
+        byte[] png = mockMvc.perform(get("/goals/{id}/badge", goal.id()).requestAttr("userId", userId))
+                .andExpect(status().isOk()).andExpect(content().contentType(MediaType.IMAGE_PNG))
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andReturn().getResponse().getContentAsByteArray();
+        var image = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(png));
+        org.junit.jupiter.api.Assertions.assertEquals(192, image.getWidth());
+        org.junit.jupiter.api.Assertions.assertEquals(216, image.getHeight());
     }
 }

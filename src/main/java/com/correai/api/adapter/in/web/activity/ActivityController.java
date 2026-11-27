@@ -10,6 +10,9 @@ import com.correai.api.domain.port.in.activity.CreateActivityUseCase;
 import com.correai.api.domain.port.in.activity.ListActivitiesUseCase;
 import com.correai.api.domain.port.in.activity.GetActivityUseCase;
 import com.correai.api.domain.port.in.activity.DeleteActivityUseCase;
+import com.correai.api.domain.port.in.activity.UpdateActivityUseCase;
+import com.correai.api.domain.port.in.activity.UpdateActivityCommand;
+import com.correai.api.adapter.in.web.activity.dto.UpdateActivityRequest;
 import com.correai.api.adapter.in.web.activity.dto.ActivityItemResponse;
 import com.correai.api.adapter.in.web.activity.dto.ActivityRequest;
 import com.correai.api.adapter.in.web.activity.dto.ActivityResponse;
@@ -17,6 +20,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -29,13 +33,16 @@ public class ActivityController {
     private final ListActivitiesUseCase listActivitiesUseCase;
     private final GetActivityUseCase getActivityUseCase;
     private final DeleteActivityUseCase deleteActivityUseCase;
+    private final UpdateActivityUseCase updateActivityUseCase;
 
     public ActivityController(CreateActivityUseCase createActivityUseCase, ListActivitiesUseCase listActivitiesUseCase,
-                              GetActivityUseCase getActivityUseCase, DeleteActivityUseCase deleteActivityUseCase) {
+                              GetActivityUseCase getActivityUseCase, DeleteActivityUseCase deleteActivityUseCase,
+                              UpdateActivityUseCase updateActivityUseCase) {
         this.createActivityUseCase = createActivityUseCase;
         this.listActivitiesUseCase = listActivitiesUseCase;
         this.getActivityUseCase = getActivityUseCase;
         this.deleteActivityUseCase = deleteActivityUseCase;
+        this.updateActivityUseCase = updateActivityUseCase;
     }
 
     @GetMapping
@@ -55,12 +62,23 @@ public class ActivityController {
     }
 
     @DeleteMapping("/{id}")
+    @Transactional
     public ResponseEntity<Void> delete(@RequestAttribute("userId") UUID userId, @PathVariable UUID id) {
         deleteActivityUseCase.delete(userId, id);
         return ResponseEntity.noContent().build();
     }
 
+    @PutMapping("/{id}")
+    @Transactional
+    public ResponseEntity<ActivityItemResponse> update(@RequestAttribute("userId") UUID userId,
+            @PathVariable UUID id, @Valid @RequestBody UpdateActivityRequest request) {
+        return ResponseEntity.ok(toItemResponse(updateActivityUseCase.update(new UpdateActivityCommand(
+                userId, id, request.type(), request.distanceKm(), request.durationSeconds(),
+                request.trainingType(), request.perceivedEffort(), request.notes()))));
+    }
+
     @PostMapping
+    @Transactional
     public ResponseEntity<ActivityResponse> create(
             @RequestAttribute("userId") UUID userId,
             @Valid @RequestBody ActivityRequest request
@@ -72,7 +90,8 @@ public class ActivityController {
                 request.getDurationSeconds(),
                 request.getTrainingType(),
                 request.getPerceivedEffort(),
-                request.getNotes()
+                request.getNotes(),
+                request.parsedStartedAt()
         );
 
         ActivityCreationResult result = createActivityUseCase.create(command);
@@ -85,6 +104,8 @@ public class ActivityController {
         r.setId(activity.id());
         r.setType(activity.type());
         r.setDate(activity.activityDate());
+        r.setStartTime(activity.startTime());
+        r.setStartedAt(activity.startedAt());
         r.setDistanceKm(activity.distanceKm());
         r.setDurationSeconds(activity.durationSeconds());
         r.setAvgPace(PaceFormatter.format(activity.avgPaceSeconds()));
@@ -104,4 +125,3 @@ public class ActivityController {
         return response;
     }
 }
-

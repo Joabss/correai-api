@@ -37,16 +37,20 @@ badges, mobile e validacao ponta a ponta permanecem pendentes.
 | Usuario anonimo | Implementado com JWT assinado (`POST /auth/anonymous`) |
 | Usuario com e-mail/senha | Implementado (`POST /users` cadastra com nome, e-mail e senha BCrypt e retorna JWT; `POST /auth/login` autentica; migracoes `V3` e `V4`; `GET /users/me` retorna o usuario autenticado; migracao `V3__add_user_name.sql`) |
 | Edicao de perfil, fotos e percurso | Implementados (`PUT /users/me`; `PUT/GET /users/me/photo`, `PUT/GET /activities/{id}/photo` e `/activities/{id}/route`; arquivos privados em PostgreSQL, migracao `V6`; GPX 1.0/1.1) |
+| Varias fotos por atividade | Implementadas em 2026-11-27: `GET /activities/{id}/photos` e `PUT/GET /activities/{id}/photos/{photoId}`; UUID por foto, nova tentativa idempotente e fotos legadas preservadas; reutiliza `media_files`, sem nova migracao |
+| Remocao de fotos da atividade | Implementada em 2026-11-27: `DELETE /activities/{id}/photos/{photoId}`; apenas proprietario, inclui foto legada, idempotente e sem alterar percurso |
 | Erros padronizados (ProblemDetail), CORS e OpenAPI | Implementados |
 | Refresh token, recuperacao de senha e conversao de anonimo em conta | Implementados (`POST /auth/refresh`, `POST /auth/password-reset/request|confirm`, `POST /users/me/account`; tokens de uso unico em `one_time_tokens`, migracao `V5`); login com protecao contra enumeracao por tempo de resposta |
-| Migracoes Flyway | Implementadas (`V1` a `V6`) |
+| Migracoes Flyway | Implementadas (`V1` a `V9`; inicio da atividade em `V7`/`V8`, conquistas em `V9`) |
 | `GET /activities/{id}` | Implementado |
 | Excluir atividade (`DELETE /activities/{id}`) | Implementado |
-| Editar atividade | Pendente |
+| Editar atividade | Implementado em 2026-11-27 (`PUT /activities/{id}`): apenas o proprietario; recalcula pace e preserva inicio, fotos, percurso e identificador |
 | Metas (`/goals`): km, atividades e pace, semanal/mensal, varias ativas | Implementado |
+| Desafios com conquistas permanentes | Implementados em 2026-11-27: snapshot em `goals` (`V9`), `GET /goals/badges`, PNG privado em `GET /goals/{id}/badge`; exclusao protegida com `409` e conquistas preservadas apos editar/apagar atividades |
+| PRs por trecho GPS | Implementados em 2026-11-27: `GET /stats/records`, top 3 por 5 km/10 km/21,0975 km/42,195 km, qualquer tipo de atividade; um melhor trecho por atividade, sem atravessar pausas; GPX antigo sem horario nao participa |
 | `GET /stats/evolution` | Implementado (semanal, `weeks` de 1 a 52) |
 | PlannedActivity | Pendente |
-| Badge/UserBadge | Pendente |
+| Badge/UserBadge genericos | Fora desta entrega; conquistas de desafios implementadas em `goals`, sem catalogo generico de badges |
 
 ## Arquitetura e plataforma
 
@@ -56,6 +60,12 @@ badges, mobile e validacao ponta a ponta permanecem pendentes.
   (`User` tem `name` e `email` opcionais: e-mail nulo indica usuario anonimo).
 - Services de aplicacao sem anotacoes Spring, registrados em `config/BeanConfig`.
 - `Clock` injetado e calculo de streak unificado em `StreakCalculator`.
+- Conquistas ficam no desafio, nao na atividade; atualizacoes atomicas impedem apagar ou
+  substituir um badge registrado. As operacoes REST de atividade e conquista compartilham transacao.
+- Calculo de melhores trechos no dominio (`BestEffortCalculator`); leitura GPX compartilhada
+  em `application.media.GpxReader`, com protecao contra DTD/entidades externas.
+- Criterios de conquistas e PRs confirmados pelo usuario em 2026-11-27; detalhes e limites
+  documentados no README. O ranking e calculado sob demanda; seu custo cresce com o historico GPS.
 - Regras ArchUnit (`HexagonalArchitectureTest`) e teste de persistencia com Testcontainers/PostgreSQL.
 - `GET /activities` paginado (`page`, `size` ate 100).
 - Persistencia separada em entidades e mapeadores JPA.

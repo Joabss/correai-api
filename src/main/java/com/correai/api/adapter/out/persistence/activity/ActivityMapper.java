@@ -12,6 +12,8 @@ public class ActivityMapper {
                 activity.userId(),
                 activity.type(),
                 activity.activityDate(),
+                activity.startTime(),
+                activity.startedAt(),
                 activity.distanceKm(),
                 activity.durationSeconds(),
                 activity.avgPaceSeconds(),
@@ -23,11 +25,13 @@ public class ActivityMapper {
     }
 
     public Activity toDomain(ActivityEntity entity) {
-        return Activity.reconstruct(
+        return Activity.reconstructWithStartedAt(
                 entity.getId(),
                 entity.getUserId(),
                 entity.getType(),
                 entity.getActivityDate(),
+                entity.getStartTime(),
+                entity.getStartedAt(),
                 entity.getDistanceKm(),
                 entity.getDurationSeconds(),
                 entity.getAvgPaceSeconds(),
@@ -38,4 +42,3 @@ public class ActivityMapper {
         );
     }
 }
-

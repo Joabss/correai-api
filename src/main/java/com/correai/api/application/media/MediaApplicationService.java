@@ -12,16 +12,9 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamConstants;
-import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.XMLStreamReader;
-import javax.xml.namespace.QName;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Iterator;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.List;
 import java.util.UUID;
 
@@ -53,13 +46,43 @@ public class MediaApplicationService implements MediaUseCase {
         return media.find(userId, activityId, kind).orElseThrow(MediaNotFoundException::new);
     }
 
+    @Override
+    public void saveActivityPhoto(UUID userId, UUID activityId, UUID photoId, byte[] bytes) {
+        checkOwner(userId, activityId, MediaKind.ACTIVITY_PHOTO);
+        if (photoId == null || bytes == null || bytes.length == 0 || bytes.length > MAX_PHOTO_BYTES) {
+            throw new IllegalArgumentException("Invalid photo");
+        }
+        media.saveActivityPhoto(userId, activityId, photoId, new MediaContent(validatePhoto(bytes), bytes));
+    }
+
+    @Override
+    public List<UUID> listActivityPhotos(UUID userId, UUID activityId) {
+        checkOwner(userId, activityId, MediaKind.ACTIVITY_PHOTO);
+        return media.listActivityPhotos(userId, activityId);
+    }
+
+    @Override
+    public MediaContent getActivityPhoto(UUID userId, UUID activityId, UUID photoId) {
+        checkOwner(userId, activityId, MediaKind.ACTIVITY_PHOTO);
+        if (photoId == null) throw new IllegalArgumentException("Invalid photo ID");
+        return media.findActivityPhoto(userId, activityId, photoId).orElseThrow(MediaNotFoundException::new);
+    }
+
     private void checkOwner(UUID userId, UUID activityId, MediaKind kind) {
         if (userId == null || kind == null || (kind == MediaKind.USER_PHOTO) != (activityId == null)) {
             throw new IllegalArgumentException("Invalid file owner");
         }
+
         if (activityId != null && activities.findByIdAndUserId(activityId, userId).isEmpty()) {
             throw new ActivityNotFoundException();
         }
+    }
+
+    @Override
+    public void deleteActivityPhoto(UUID userId, UUID activityId, UUID photoId) {
+        checkOwner(userId, activityId, MediaKind.ACTIVITY_PHOTO);
+        if (photoId == null) throw new IllegalArgumentException("Invalid photo ID");
+        media.deleteActivityPhoto(userId, activityId, photoId);
     }
 
     private String validatePhoto(byte[] bytes) {
@@ -94,69 +117,7 @@ public class MediaApplicationService implements MediaUseCase {
     }
 
     private String validateGpx(byte[] bytes) {
-        try {
-            XMLInputFactory factory = XMLInputFactory.newFactory();
-            factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
-            factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
-            XMLStreamReader reader = factory.createXMLStreamReader(new ByteArrayInputStream(bytes));
-            Deque<QName> path = new ArrayDeque<>();
-            String namespace = null;
-            int count = 0;
-            try {
-                while (reader.hasNext()) {
-                    int event = reader.next();
-                    if (event == XMLStreamConstants.DTD || event == XMLStreamConstants.ENTITY_REFERENCE) {
-                        throw new IllegalArgumentException("Invalid GPX document");
-                    }
-                    if (event == XMLStreamConstants.START_ELEMENT) {
-                        if (path.size() >= 64) {
-                            throw new IllegalArgumentException("GPX nesting is too deep");
-                        }
-                        String name = reader.getLocalName();
-                        if (path.isEmpty()) {
-                            namespace = reader.getNamespaceURI();
-                            if (!"gpx".equals(name) || !("http://www.topografix.com/GPX/1/1".equals(namespace)
-                                    || "http://www.topografix.com/GPX/1/0".equals(namespace))) {
-                                throw new IllegalArgumentException("Invalid GPX document");
-                            }
-                        } else if (namespace.equals(reader.getNamespaceURI())
-                                && (("trkpt".equals(name) && List.copyOf(path).equals(List.of(
-                                        new QName(namespace, "trkseg"), new QName(namespace, "trk"),
-                                        new QName(namespace, "gpx"))))
-                                || ("rtept".equals(name) && List.copyOf(path).equals(List.of(
-                                        new QName(namespace, "rte"), new QName(namespace, "gpx")))))) {
-                            validatePoint(reader);
-                            if (++count > 100_000) {
-                                throw new IllegalArgumentException("Too many GPX points");
-                            }
-                        }
-                        path.push(reader.getName());
-                    } else if (event == XMLStreamConstants.END_ELEMENT) {
-                        path.pop();
-                    }
-                }
-            } finally {
-                reader.close();
-            }
-            if (count < 2) {
-                throw new IllegalArgumentException("GPX must contain at least 2 route points");
-            }
-            return "application/gpx+xml";
-        } catch (XMLStreamException e) {
-            throw new IllegalArgumentException("Invalid GPX document", e);
-        }
-    }
-
-    private void validatePoint(XMLStreamReader reader) {
-        try {
-            double latitude = Double.parseDouble(reader.getAttributeValue(null, "lat"));
-            double longitude = Double.parseDouble(reader.getAttributeValue(null, "lon"));
-            if (!Double.isFinite(latitude) || !Double.isFinite(longitude)
-                    || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
-                throw new IllegalArgumentException("Invalid GPX coordinates");
-            }
-        } catch (NumberFormatException | NullPointerException e) {
-            throw new IllegalArgumentException("Invalid GPX coordinates", e);
-        }
+        GpxReader.read(bytes);
+        return "application/gpx+xml";
     }
 }

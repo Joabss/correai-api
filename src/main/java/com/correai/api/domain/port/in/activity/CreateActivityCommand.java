@@ -4,6 +4,7 @@ import com.correai.api.domain.model.activity.ActivityType;
 import com.correai.api.domain.model.activity.PerceivedEffort;
 import com.correai.api.domain.model.activity.TrainingType;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
@@ -16,7 +17,7 @@ public record CreateActivityCommand(
         int durationSeconds,
         TrainingType trainingType,
         PerceivedEffort perceivedEffort,
-        String notes
+        String notes,
+        OffsetDateTime startedAt
 ) {
 }
-

@@ -6,6 +6,7 @@ import com.correai.api.domain.model.auth.InvalidTokenException;
 import com.correai.api.domain.model.user.AccountAlreadyRegisteredException;
 import com.correai.api.domain.model.user.EmailAlreadyRegisteredException;
 import com.correai.api.domain.model.goal.GoalNotFoundException;
+import com.correai.api.domain.model.goal.GoalHasBadgeException;
 import com.correai.api.domain.model.user.UserNotFoundException;
 import com.correai.api.domain.model.user.ConcurrentProfileUpdateException;
 import com.correai.api.domain.model.media.MediaNotFoundException;
@@ -50,7 +51,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler({EmailAlreadyRegisteredException.class, AccountAlreadyRegisteredException.class,
-            ConcurrentProfileUpdateException.class})
+            ConcurrentProfileUpdateException.class, GoalHasBadgeException.class})
     ProblemDetail handleEmailAlreadyRegistered(RuntimeException exception) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
         problem.setTitle("Conflict");

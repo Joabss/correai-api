@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.UUID;
+import java.util.List;
 
 @RestController
 public class MediaController {
@@ -53,6 +55,32 @@ public class MediaController {
     public ResponseEntity<Void> saveActivityRoute(@RequestAttribute("userId") UUID userId, @PathVariable UUID id,
                                                   @RequestPart("file") MultipartFile file) throws IOException {
         media.save(userId, id, MediaKind.ACTIVITY_ROUTE, file.getBytes());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/activities/{id}/photos")
+    public List<UUID> listActivityPhotos(@RequestAttribute("userId") UUID userId, @PathVariable UUID id) {
+        return media.listActivityPhotos(userId, id);
+    }
+
+    @PutMapping(path = "/activities/{id}/photos/{photoId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> saveActivityPhotoById(@RequestAttribute("userId") UUID userId,
+            @PathVariable UUID id, @PathVariable UUID photoId, @RequestPart("file") MultipartFile file)
+            throws IOException {
+        media.saveActivityPhoto(userId, id, photoId, file.getBytes());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/activities/{id}/photos/{photoId}")
+    public ResponseEntity<byte[]> getActivityPhotoById(@RequestAttribute("userId") UUID userId,
+            @PathVariable UUID id, @PathVariable UUID photoId) {
+        return response(media.getActivityPhoto(userId, id, photoId));
+    }
+
+    @DeleteMapping("/activities/{id}/photos/{photoId}")
+    public ResponseEntity<Void> deleteActivityPhoto(@RequestAttribute("userId") UUID userId,
+            @PathVariable UUID id, @PathVariable UUID photoId) {
+        media.deleteActivityPhoto(userId, id, photoId);
         return ResponseEntity.noContent().build();
     }
 

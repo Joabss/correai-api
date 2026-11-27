@@ -7,6 +7,7 @@ import com.correai.api.domain.model.goal.GoalType;
 import com.correai.api.domain.port.in.goal.GoalProgress;
 
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -24,12 +25,16 @@ public record GoalResponse(
         Double current,
         String currentPace,
         Double percentage,
-        boolean achieved
+        boolean achieved,
+        Instant achievedAt
 ) {
 
     public static GoalResponse from(Goal goal) {
         return new GoalResponse(goal.id(), goal.type(), goal.period(), goal.target(), paceOf(goal, goal.target()),
-                null, null, null, null, null, false);
+                goal.achievedPeriodStart(),
+                goal.hasBadge() ? goal.period().endOf(goal.achievedPeriodStart()) : null,
+                goal.achievedCurrent(), goal.hasBadge() ? paceOf(goal, goal.achievedCurrent()) : null,
+                null, goal.hasBadge(), goal.achievedAt());
     }
 
     public static GoalResponse from(GoalProgress progress) {
@@ -37,7 +42,7 @@ public record GoalResponse(
         return new GoalResponse(goal.id(), goal.type(), goal.period(), goal.target(), paceOf(goal, goal.target()),
                 progress.periodStart(), progress.periodEnd(), progress.current(),
                 progress.current() == null ? null : paceOf(goal, progress.current()),
-                progress.percentage(), progress.achieved());
+                progress.percentage(), progress.achieved(), goal.achievedAt());
     }
 
     private static String paceOf(Goal goal, double seconds) {

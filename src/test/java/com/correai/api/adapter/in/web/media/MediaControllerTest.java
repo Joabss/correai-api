@@ -61,4 +61,36 @@ class MediaControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
     }
+
+    @Test
+    void galleryUsesPhotoIdForUploadAndRejectsInvalidIds() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID activityId = UUID.randomUUID();
+        UUID photoId = UUID.randomUUID();
+        byte[] bytes = {1, 2, 3};
+        MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", bytes);
+        mockMvc.perform(multipart("/activities/{id}/photos/{photoId}", activityId, photoId)
+                .file(file).with(request -> {
+                    request.setMethod("PUT");
+                    return request;
+                }).requestAttr("userId", userId)).andExpect(status().isNoContent());
+        verify(media).saveActivityPhoto(userId, activityId, photoId, bytes);
+        mockMvc.perform(get("/activities/{id}/photos/{photoId}", activityId, "invalid")
+                .requestAttr("userId", userId)).andExpect(status().isBadRequest());
+        when(media.listActivityPhotos(userId, activityId)).thenReturn(java.util.List.of());
+        mockMvc.perform(get("/activities/{id}/photos", activityId).requestAttr("userId", userId))
+                .andExpect(status().isOk()).andExpect(content().json("[]"));
+    }
+
+    @Test
+    void deletesPhotoWithAuthenticatedOwnerAndRejectsInvalidId() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID activityId = UUID.randomUUID();
+        UUID photoId = UUID.randomUUID();
+        mockMvc.perform(delete("/activities/{id}/photos/{photoId}", activityId, photoId)
+                .requestAttr("userId", userId)).andExpect(status().isNoContent());
+        verify(media).deleteActivityPhoto(userId, activityId, photoId);
+        mockMvc.perform(delete("/activities/{id}/photos/{photoId}", activityId, "invalid")
+                .requestAttr("userId", userId)).andExpect(status().isBadRequest());
+    }
 }

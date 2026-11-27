@@ -123,4 +123,48 @@ class MediaApplicationServiceTest {
     void missingMediaIsNotFound() {
         assertThrows(MediaNotFoundException.class, () -> service.get(user, null, MediaKind.USER_PHOTO));
     }
+
+    @Test
+    void savesListsAndReadsIndividualActivityPhotos() throws Exception {
+        UUID photoId = UUID.randomUUID();
+        when(activities.findByIdAndUserId(id, user)).thenReturn(Optional.of(activity));
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        ImageIO.write(new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB), "png", output);
+        service.saveActivityPhoto(user, id, photoId, output.toByteArray());
+        verify(media).saveActivityPhoto(eq(user), eq(id), eq(photoId),
+                argThat(content -> content.contentType().equals("image/png")));
+        when(media.listActivityPhotos(user, id)).thenReturn(java.util.List.of(photoId));
+        assertEquals(java.util.List.of(photoId), service.listActivityPhotos(user, id));
+        when(media.findActivityPhoto(user, id, photoId))
+                .thenReturn(Optional.of(new MediaContent("image/png", output.toByteArray())));
+        assertArrayEquals(output.toByteArray(), service.getActivityPhoto(user, id, photoId).bytes());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.saveActivityPhoto(user, id, photoId, new byte[] {1}));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.saveActivityPhoto(user, id, photoId, new byte[15 * 1024 * 1024 + 1]));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.getActivityPhoto(user, id, null));
+        assertThrows(MediaNotFoundException.class,
+                () -> service.getActivityPhoto(user, id, UUID.randomUUID()));
+    }
+
+    @Test
+    void rejectsAllGalleryOperationsForOtherUsers() {
+        UUID photoId = UUID.randomUUID();
+        assertThrows(ActivityNotFoundException.class, () -> service.listActivityPhotos(user, id));
+        assertThrows(ActivityNotFoundException.class, () -> service.getActivityPhoto(user, id, photoId));
+        assertThrows(ActivityNotFoundException.class,
+                () -> service.saveActivityPhoto(user, id, photoId, new byte[] {1}));
+        assertThrows(ActivityNotFoundException.class, () -> service.deleteActivityPhoto(user, id, photoId));
+        verifyNoInteractions(media);
+    }
+
+    @Test
+    void deletesOnlyOwnersPhotoAndValidatesId() {
+        UUID photoId = UUID.randomUUID();
+        when(activities.findByIdAndUserId(id, user)).thenReturn(Optional.of(activity));
+        service.deleteActivityPhoto(user, id, photoId);
+        verify(media).deleteActivityPhoto(user, id, photoId);
+        assertThrows(IllegalArgumentException.class, () -> service.deleteActivityPhoto(user, id, null));
+    }
 }
