@@ -24,8 +24,8 @@ class GpxReaderTest {
     }
 
     @Test
-    void rejectsLocalInvalidDuplicateAndNonIncreasingTimes() {
-        for (String time : new String[]{"2026-11-27T22:00:00", "invalid", "2026-11-27T12:00:00Z"}) {
+    void rejectsLocalInvalidAndDecreasingTimesButAcceptsDuplicates() {
+        for (String time : new String[]{"2026-11-27T22:00:00", "invalid", "2026-11-27T11:59:59Z"}) {
             assertThrows(IllegalArgumentException.class, () -> GpxReader.read(gpx(
                     "<trkseg><trkpt lat=\"0\" lon=\"0\"><time>2026-11-27T12:00:00Z</time></trkpt>"
                             + "<trkpt lat=\"0\" lon=\"0.1\"><time>" + time + "</time></trkpt></trkseg>")));
@@ -34,6 +34,12 @@ class GpxReaderTest {
                 <trkseg><trkpt lat="0" lon="0"><time>2026-11-27T12:00:00Z</time>
                 <time>2026-11-27T12:00:01Z</time></trkpt><trkpt lat="0" lon="0.1"/></trkseg>
                 """)));
+        // Duplicate consecutive timestamps are common in real GPS exports (sub-second sampling
+        // rounded to whole seconds) and must not reject the whole route.
+        var segments = GpxReader.read(gpx(
+                "<trkseg><trkpt lat=\"0\" lon=\"0\"><time>2026-11-27T12:00:00Z</time></trkpt>"
+                        + "<trkpt lat=\"0\" lon=\"0.1\"><time>2026-11-27T12:00:00Z</time></trkpt></trkseg>"));
+        assertEquals(2, segments.getFirst().size());
     }
 
     @Test

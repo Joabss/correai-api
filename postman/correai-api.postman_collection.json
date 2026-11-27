@@ -1020,6 +1020,41 @@
       ]
     },
     {
+      "name": "Achievements",
+      "item": [
+        {
+          "name": "Catálogo de badges",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/achievements/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "achievements",
+                "me"
+              ]
+            },
+            "description": "Lista as 19 badges fixas com código, nome, descrição, estado desbloqueado e instante da conquista."
+          },
+          "response": []
+        }
+      ],
+      "description": "Catálogo independente de conquistas permanentes do usuário."
+    },
+    {
       "name": "Actuator",
       "item": [
         {
